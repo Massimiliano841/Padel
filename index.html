@@ -4,12 +4,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2V2 Pro</title>
+<title>Padel Pro</title>
 
 <!-- PWA meta tags -->
 
-<meta name="application-name" content="2V2 Pro">
-<meta name="apple-mobile-web-app-title" content="2V2 Pro">
+<meta name="application-name" content="Padel Pro">
+<meta name="apple-mobile-web-app-title" content="Padel Pro">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
@@ -25,7 +25,7 @@
 
 <!-- Manifest PWA inline -->
 
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%222V2+Pro%22%2C%22short_name%22%3A%222V2%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0f1e%22%2C%22theme_color%22%3A%22%230a0f1e%22%7D">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Padel+Pro%22%2C%22short_name%22%3A%22Padel%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0f1e%22%2C%22theme_color%22%3A%22%230a0f1e%22%7D">
 
 <script>
 // Genera apple-touch-icon PNG dal SVG via canvas
@@ -169,10 +169,14 @@ PAGE: PARTITE
 .score-btns{display:flex;gap:6px;align-items:center;justify-content:center;}
 .sbtn{width:36px;height:36px;border-radius:8px;border:none;font-family:‘Barlow Condensed’,sans-serif;font-size:20px;font-weight:800;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;}
 .sbtn:active{transform:scale(.9);}
-.sbtn-pa{background:var(–accent);color:#fff;}
-.sbtn-ma{background:var(–s2);border:1px solid var(–border);color:var(–muted);}
+.sbtn-pa{background:var(–accent2);color:#fff;}
+.sbtn-ma{background:#fee2e2;border:1px solid #fca5a5;color:var(–red);}
 .sbtn-pb{background:var(–accent2);color:#fff;}
-.sbtn-mb{background:var(–s2);border:1px solid var(–border);color:var(–muted);}
+.sbtn-mb{background:#fee2e2;border:1px solid #fca5a5;color:var(–red);}
+.btn-confirm{background:var(–accent2);color:#fff;}
+.btn-confirm:hover{filter:brightness(1.08);}
+.btn-undo{background:var(–red);color:#fff;border:none;}
+.btn-undo:hover{filter:brightness(1.08);}
 .sep-vs{font-family:‘Barlow Condensed’,sans-serif;font-size:18px;color:var(–muted);letter-spacing:2px;}
 .match-players-uni{font-family:‘Barlow Condensed’,sans-serif;font-size:15px;font-weight:700;letter-spacing:.5px;color:var(–text);line-height:1.35;}
 .match-p2{color:var(–text);}
@@ -426,7 +430,7 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
 <!-- MOBILE HEADER (solo smartphone) -->
 
 <div class="mobile-header" id="mobileHeader" style="display:none;">
-  <div class="mobile-header-logo">2V2 PRO</div>
+  <div class="mobile-header-logo">PADEL PRO</div>
   <div class="mobile-header-right">
     <div id="fb-status-mobile" style="font-size:13px;">🔄</div>
     <div id="user-chip-mobile" class="user-chip" style="display:none;"></div>
@@ -436,7 +440,7 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
 <!-- NAV (desktop) -->
 
 <nav class="nav">
-  <div class="nav-logo">2V2</div>
+  <div class="nav-logo">PADEL</div>
   <button class="tab active" onclick="showPage('players')" id="tab-players">Giocatori</button>
   <button class="tab" onclick="showPage('newt')" id="tab-newt">Torneo</button>
   <button class="tab" onclick="showPage('matches')" id="tab-matches">Partite <span class="badge" id="badge-matches">—</span></button>
@@ -456,7 +460,7 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
 
 <div class="login-overlay" id="loginOverlay" data-tab="login">
   <div class="login-box">
-    <div class="login-title">2V2 PRO</div>
+    <div class="login-title">PADEL PRO</div>
     <div class="login-sub" id="login-sub">Inserisci le tue credenziali<br><span style="font-size:11px;color:var(--accent);">Admin: primo accesso crea la password</span></div>
     <div class="login-field">
       <label class="lbl">Username</label>
@@ -508,7 +512,7 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
 <!-- LOADING OVERLAY -->
 
 <div id="fb-loading-overlay" style="display:flex;position:fixed;inset:0;background:#f0f2f7;z-index:200;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:16px;">
-  <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;letter-spacing:4px;background:linear-gradient(90deg,#2563eb,#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">2V2 PRO</div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;letter-spacing:4px;background:linear-gradient(90deg,#2563eb,#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">PADEL PRO</div>
   <div id="fb-loading-msg" style="color:#6b7280;font-size:14px;text-align:center;">🔄 Connessione in corso...</div>
   <div id="fb-debug" style="background:#1a1d2e;color:#e8ff3c;font-family:monospace;font-size:11px;text-align:left;padding:12px;border-radius:10px;width:100%;max-width:480px;max-height:160px;overflow-y:auto;line-height:1.8;">Avvio...</div>
 </div>
@@ -1333,7 +1337,7 @@ function doExport(){
 
   // Nome file
   const dateStr = new Date().toISOString().slice(0,10);
-  const fileName = `2v2pro_export_${dateStr}.xlsx`;
+  const fileName = `padelpro_export_${dateStr}.xlsx`;
   XLSX.writeFile(wb, fileName);
   addLog('auth', `Export Excel scaricato: ${ms.length} partite`);
 }
@@ -1903,9 +1907,9 @@ function renderMatches(){
           </div>
         </div>
         <div id="pt-preview-${mid}" class="pt-preview"></div>
-        <button class="btn btn-primary btn-full" style="font-size:17px;" onclick="confirmMatch('${mid}')">✓ CONFERMA RISULTATO</button>
-        ${m.done?`<button class="btn btn-danger btn-full" style="margin-top:6px;font-size:13px;" onclick="undoMatch('${mid}')">✕ Annulla risultato</button>`:''}
-        ${m.extra?`<button class="btn btn-danger btn-full" style="margin-top:6px;font-size:13px;border-color:var(--red);color:var(--red);" onclick="deleteExtraMatch('${mid}')">🗑 Elimina partita extra</button>`:''}
+        <button class="btn btn-confirm btn-full" style="font-size:17px;" onclick="confirmMatch('${mid}')">✓ CONFERMA RISULTATO</button>
+        ${m.done?`<button class="btn btn-undo btn-full" style="margin-top:6px;font-size:13px;" onclick="undoMatch('${mid}')">✕ Annulla risultato</button>`:''}
+        ${m.extra?`<button class="btn btn-undo btn-full" style="margin-top:6px;font-size:13px;" onclick="deleteExtraMatch('${mid}')">🗑 Elimina partita extra</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -2106,7 +2110,7 @@ function addExtraMatch(){
     return pair;
   }
 
-  t.matches.push({
+  t.matches.unshift({
     id:    maxId + 1,
     a:     findOrCreatePair(a1, a2),
     b:     findOrCreatePair(b1, b2),
@@ -2890,6 +2894,6 @@ function confetti(){
 // ════ fine app ════
 </script>
 
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">2V2 PRO · v1.0.10</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
 </body>
 </html>

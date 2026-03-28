@@ -730,6 +730,8 @@ function fmtDateTime(iso){
   return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'})
     + ' ' + d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
 }
+
+function setStatus(s){
   const el = document.getElementById('fb-status');
   if(!el) return;
   el.innerHTML = {

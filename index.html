@@ -228,6 +228,12 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 .log-badge.seasons{background:rgba(217,119,6,.1);color:var(--gold);}
 .log-badge.matches{background:rgba(107,114,128,.1);color:var(--muted);}
 .log-badge.auth{background:rgba(220,38,38,.1);color:var(--red);}
+/* USERS ADMIN */
+.user-item{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.user-item-avatar{width:32px;height:32px;border-radius:50%;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.user-item-name{font-weight:700;font-size:14px;flex:1;}
+.user-item-badge{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;padding:2px 8px;border-radius:20px;background:rgba(37,99,235,.12);color:var(--accent);font-weight:700;}
+.user-item-badge.master{background:rgba(217,119,6,.15);color:var(--gold);}
 .login-overlay{display:none;position:fixed;inset:0;background:#f0f2f7;z-index:150;align-items:center;justify-content:center;padding:20px;}
 .login-overlay.show{display:flex;}
 .login-box{background:#fff;border:1px solid var(--border);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.08);}
@@ -265,6 +271,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
   <button class="tab" onclick="showPage('seasons')" id="tab-seasons">Stagioni</button>
   <button class="tab" onclick="showPage('log')" id="tab-log">Log</button>
+  <button class="tab" onclick="showPage('users')" id="tab-users" style="display:none;">👤 Utenti</button>
   <div style="margin-left:auto;padding:0 6px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
     <div id="fb-status" style="font-size:11px;white-space:nowrap;">🔄</div>
     <div id="user-chip" class="user-chip" style="display:none;"></div>
@@ -275,14 +282,10 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 <div class="login-overlay" id="loginOverlay" data-tab="login">
   <div class="login-box">
     <div class="login-title">2V2 PRO</div>
-    <div class="login-sub">Accedi per usare l'app</div>
-    <div class="login-tabs">
-      <button class="login-tab active" id="ltab-login" onclick="switchLoginTab('login')">Accedi</button>
-      <button class="login-tab" id="ltab-register" onclick="switchLoginTab('register')">Registrati</button>
-    </div>
+    <div class="login-sub" id="login-sub">Inserisci le tue credenziali<br><span style="font-size:11px;color:var(--accent);">Admin: primo accesso crea la password</span></div>
     <div class="login-field">
       <label class="lbl">Username</label>
-      <input class="inp" id="login-username" placeholder="Il tuo nome..." maxlength="20"
+      <input class="inp" id="login-username" placeholder="Username..." maxlength="20"
         onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
     </div>
     <div class="login-field">
@@ -292,6 +295,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     </div>
     <div class="login-error" id="login-error"></div>
     <button class="btn btn-primary btn-full" style="margin-top:8px;font-size:18px;" onclick="submitLogin()">Entra →</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;">Gli account vengono creati dall'amministratore</p>
   </div>
 </div>
 
@@ -454,6 +458,30 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div id="logList"></div>
 </div>
 
+<!-- ════ UTENTI (solo admin) ════ -->
+<div class="page" id="page-users">
+  <div style="padding-top:10px;margin-bottom:18px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">UTENTI</div>
+    <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Gestione account — solo amministratore</div>
+  </div>
+  <!-- Lista utenti -->
+  <div class="sec-title">Account attivi</div>
+  <div id="userList" style="margin-bottom:24px;"></div>
+  <!-- Crea nuovo utente -->
+  <div class="sec-title">Crea nuovo account</div>
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+    <div>
+      <label class="lbl">Username</label>
+      <input class="inp" id="new-user-name" placeholder="es. Marco" maxlength="20">
+    </div>
+    <div>
+      <label class="lbl">Password</label>
+      <input class="inp" id="new-user-pass" type="password" placeholder="Minimo 4 caratteri">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="adminCreateUser()">+ Crea account</button>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -536,11 +564,12 @@ function save(k, v){
 function saveStr(k, v){ return save(k, v); }
 
 // ═══════════════════════════════════
-//  AUTH — login / registrazione
+//  AUTH — sistema login con admin master
 // ═══════════════════════════════════
-let currentUser = null; // { username }
+const MASTER_USERNAME = 'admin';
+let currentUser = null; // { username, isMaster }
 
-// SHA-256 nel browser (nativo, nessuna libreria)
+// SHA-256 nel browser
 async function sha256(str){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -553,60 +582,60 @@ function hideLoginOverlay(){
   document.getElementById('loginOverlay').classList.remove('show');
 }
 
-function switchLoginTab(tab){
-  document.getElementById('ltab-login').classList.toggle('active', tab==='login');
-  document.getElementById('ltab-register').classList.toggle('active', tab==='register');
-  document.getElementById('login-error').textContent = '';
-  document.getElementById('loginOverlay').dataset.tab = tab;
-}
-
 async function submitLogin(){
-  const tab = document.getElementById('loginOverlay').dataset.tab || 'login';
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
+  const errEl   = document.getElementById('login-error');
   errEl.textContent = '';
 
-  if(!username){ errEl.textContent = 'Inserisci un username'; return; }
-  if(!password){ errEl.textContent = 'Inserisci una password'; return; }
-  if(username.length < 2){ errEl.textContent = 'Username troppo corto'; return; }
-  if(password.length < 4){ errEl.textContent = 'Password minimo 4 caratteri'; return; }
+  if(!username){ errEl.textContent = 'Inserisci username'; return; }
+  if(!password){ errEl.textContent = 'Inserisci password'; return; }
 
-  const hash = await sha256(password);
-
-  // Carica utenti
-  let users = await sbGet('users').catch(()=>null);
+  const hash  = await sha256(password);
+  let   users = await sbGet('users').catch(()=>null);
   if(!Array.isArray(users)) users = [];
 
-  if(tab === 'login'){
-    const user = users.find(u=>u.username.toLowerCase()===username.toLowerCase());
-    if(!user){ errEl.textContent = 'Utente non trovato'; return; }
-    if(user.hash !== hash){ errEl.textContent = 'Password errata'; return; }
-    loginSuccess(user.username);
-  } else {
-    // Registrazione
-    if(users.find(u=>u.username.toLowerCase()===username.toLowerCase())){
-      errEl.textContent = 'Username già in uso'; return;
+  const isMaster = username.toLowerCase() === MASTER_USERNAME;
+
+  if(isMaster){
+    // Prima volta: nessun admin salvato → imposta la password
+    const adminRec = users.find(u=>u.username.toLowerCase()===MASTER_USERNAME);
+    if(!adminRec){
+      // Primo accesso admin: crea l'account
+      users.push({ username: MASTER_USERNAME, hash, createdAt: new Date().toISOString(), isMaster: true });
+      await sbSet('users', users);
+      loginSuccess(MASTER_USERNAME, true);
+      return;
     }
-    users.push({ username, hash, createdAt: new Date().toISOString() });
-    await sbSet('users', users);
-    loginSuccess(username);
+    if(adminRec.hash !== hash){ errEl.textContent = 'Password errata'; return; }
+    loginSuccess(MASTER_USERNAME, true);
+    return;
   }
+
+  // Utente normale
+  const user = users.find(u=>u.username.toLowerCase()===username.toLowerCase());
+  if(!user){ errEl.textContent = 'Utente non trovato'; return; }
+  if(user.hash !== hash){ errEl.textContent = 'Password errata'; return; }
+  loginSuccess(user.username, false);
 }
 
-function loginSuccess(username){
-  currentUser = { username };
-  localStorage.setItem('2v2_user', username);
+function loginSuccess(username, isMaster){
+  currentUser = { username, isMaster };
+  localStorage.setItem('2v2_user', JSON.stringify(currentUser));
   hideLoginOverlay();
   renderUserChip();
-  // Log accesso (dopo aver impostato currentUser)
-  addLog('auth', `Accesso effettuato`);
+  addLog('auth', 'Accesso effettuato');
+  // Mostra/nascondi tab admin
+  const tabU = document.getElementById('tab-users');
+  if(tabU) tabU.style.display = isMaster ? '' : 'none';
 }
 
 function logout(){
   currentUser = null;
   localStorage.removeItem('2v2_user');
   renderUserChip();
+  const tabU = document.getElementById('tab-users');
+  if(tabU) tabU.style.display = 'none';
   showLoginOverlay();
 }
 
@@ -615,20 +644,96 @@ function renderUserChip(){
   if(!chip) return;
   if(!currentUser){ chip.style.display='none'; return; }
   chip.style.display='flex';
+  const badge = currentUser.isMaster ? ' 👑' : '';
   chip.innerHTML = `
-    <div class="avatar">${currentUser.username[0].toUpperCase()}</div>
-    <span>${currentUser.username}</span>
+    <div class="avatar" style="background:${userColor(currentUser.username)}">${currentUser.username[0].toUpperCase()}</div>
+    <span>${currentUser.username}${badge}</span>
     <button class="btn-logout" onclick="logout()">Esci</button>`;
 }
 
 function checkAutoLogin(){
-  const saved = localStorage.getItem('2v2_user');
-  if(saved){
-    currentUser = { username: saved };
+  try {
+    const saved = localStorage.getItem('2v2_user');
+    if(!saved) return false;
+    const u = JSON.parse(saved);
+    if(!u?.username) return false;
+    currentUser = u;
     renderUserChip();
+    const tabU = document.getElementById('tab-users');
+    if(tabU) tabU.style.display = u.isMaster ? '' : 'none';
     return true;
+  } catch { return false; }
+}
+
+// ── Gestione utenti (solo admin) ──────────────────────
+async function adminCreateUser(){
+  if(!currentUser?.isMaster){ alert('Solo l\'admin può creare account'); return; }
+  const name = document.getElementById('new-user-name').value.trim();
+  const pass = document.getElementById('new-user-pass').value;
+  if(!name){ alert('Inserisci un username'); return; }
+  if(pass.length < 4){ alert('Password minimo 4 caratteri'); return; }
+
+  let users = await sbGet('users').catch(()=>null);
+  if(!Array.isArray(users)) users = [];
+
+  if(users.find(u=>u.username.toLowerCase()===name.toLowerCase())){
+    alert('Username già in uso'); return;
   }
-  return false;
+  const hash = await sha256(pass);
+  users.push({ username: name, hash, createdAt: new Date().toISOString() });
+  await sbSet('users', users);
+  document.getElementById('new-user-name').value='';
+  document.getElementById('new-user-pass').value='';
+  addLog('auth', `Admin ha creato account: ${name}`);
+  renderUserList(users);
+  alert(`✅ Account "${name}" creato!`);
+}
+
+async function adminChangePassword(username){
+  if(!currentUser?.isMaster) return;
+  const newPass = prompt(`Nuova password per "${username}":`);
+  if(!newPass || newPass.length < 4){ alert('Password minimo 4 caratteri'); return; }
+  const hash = await sha256(newPass);
+  let users = await sbGet('users').catch(()=>null);
+  if(!Array.isArray(users)) users = [];
+  const u = users.find(x=>x.username===username);
+  if(!u){ alert('Utente non trovato'); return; }
+  u.hash = hash;
+  await sbSet('users', users);
+  addLog('auth', `Admin ha cambiato password: ${username}`);
+  alert(`✅ Password di "${username}" aggiornata`);
+}
+
+async function adminDeleteUser(username){
+  if(!currentUser?.isMaster) return;
+  if(username.toLowerCase()===MASTER_USERNAME){ alert('Non puoi eliminare l\'admin'); return; }
+  if(!confirm(`Eliminare l'account "${username}"?`)) return;
+  let users = await sbGet('users').catch(()=>null);
+  if(!Array.isArray(users)) users = [];
+  users = users.filter(u=>u.username!==username);
+  await sbSet('users', users);
+  addLog('auth', `Admin ha eliminato account: ${username}`);
+  renderUserList(users);
+}
+
+async function renderUserList(users){
+  if(!users){
+    users = await sbGet('users').catch(()=>null);
+    if(!Array.isArray(users)) users=[];
+  }
+  const el = document.getElementById('userList');
+  if(!el) return;
+  if(!users.length){ el.innerHTML='<div class="empty-state">Nessun utente</div>'; return; }
+  el.innerHTML = users.map(u=>`
+    <div class="user-item">
+      <div class="user-item-avatar" style="background:${userColor(u.username)}">${u.username[0].toUpperCase()}</div>
+      <div class="user-item-name">${u.username}</div>
+      ${u.isMaster ? '<span class="user-item-badge master">👑 MASTER</span>' : '<span class="user-item-badge">UTENTE</span>'}
+      ${!u.isMaster ? `
+        <button class="btn-sm" onclick="adminChangePassword('${u.username}')" style="border-color:var(--accent);color:var(--accent);">🔑 Password</button>
+        <button class="btn-sm" onclick="adminDeleteUser('${u.username}')">✕</button>
+      ` : ''}
+    </div>`).join('');
 }
 
 // ═══════════════════════════════════
@@ -751,6 +856,7 @@ function showPage(name){
   if(name==='tlist')   renderTlist();
   if(name==='seasons') renderSeasons();
   if(name==='log')     renderLog();
+  if(name==='users')   renderUserList();
 }
 
 // ═══════════════════════════════════

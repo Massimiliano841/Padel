@@ -444,12 +444,9 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- ════ LOG ════ -->
 <div class="page" id="page-log">
-  <div style="padding-top:10px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;">
-    <div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">LOG</div>
-      <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Storico modifiche per utente</div>
-    </div>
-    <button class="btn-sm" onclick="clearLog()" style="color:var(--red);border-color:var(--red);">Cancella log</button>
+  <div style="padding-top:10px;margin-bottom:18px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">LOG</div>
+    <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Storico modifiche per utente</div>
   </div>
   <div class="pills" id="logFilter">
     <button class="pill active" onclick="filterLog('all',this)">Tutti</button>
@@ -707,13 +704,6 @@ function renderLog(){
         <div class="log-time">${fmtDateTime(e.ts)}</div>
       </div>
     </div>`).join('');
-}
-
-function clearLog(){
-  if(!confirm('Cancellare tutto il log?')) return;
-  actionLog = [];
-  sbSet('actionLog', []).catch(()=>{});
-  renderLog();
 }
 
 // Colore avatar deterministico per username

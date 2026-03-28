@@ -209,7 +209,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 .top1 .rank-pos-cell{color:var(--gold);}
 .top2 .rank-pos-cell{color:var(--silver);}
 .top3 .rank-pos-cell{color:var(--bronze);}
-.rank-table td.player-name-cell{font-size:14px;font-weight:700;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rank-table td.player-name-cell{font-size:14px;font-weight:700;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .rank-table td.avg-cell{color:var(--accent);font-size:16px;font-weight:800;}
 .rank-table td.pts-cell{color:var(--text);font-size:15px;font-weight:700;}
 .rank-table td.num-cell{color:var(--text);}
@@ -606,9 +606,14 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- ════ CLASSIFICA ════ -->
 <div class="page" id="page-rank">
-  <div style="text-align:center;margin-bottom:18px;padding-top:8px;">
+  <div style="text-align:center;margin-bottom:14px;padding-top:8px;">
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(32px,9vw,48px);font-weight:800;letter-spacing:4px;">CLASSIFICA</div>
     <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;" id="rankSubtitle">Seleziona un filtro</div>
+  </div>
+  <!-- Vista: giocatori / coppie -->
+  <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <button class="pill active" id="rankViewPlayers" onclick="setRankView('players',this)" style="flex:1;text-align:center;">👤 Giocatori</button>
+    <button class="pill" id="rankViewCouples" onclick="setRankView('couples',this)" style="flex:1;text-align:center;">👥 Coppie</button>
   </div>
   <div class="rank-controls">
     <div class="pills" id="rankFilterPills">
@@ -2053,6 +2058,14 @@ function updateBadge(){
 // ═══════════════════════════════════
 let activeRankBtn = null;
 let rankSort = { col: 'avg', dir: 'desc' };
+let rankView  = 'players'; // 'players' | 'couples'
+
+function setRankView(view, btn){
+  rankView = view;
+  document.querySelectorAll('#rankViewPlayers,#rankViewCouples').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRank();
+}
 
 function sortRank(col){
   if(rankSort.col === col){
@@ -2091,6 +2104,7 @@ function populateSeasonPicker(){
 }
 
 function renderRank(){
+  if(rankView === 'couples'){ renderRankCouples(); return; }
   let fromDate=null, toDate=null, subtitle='Tutti i risultati';
   const now=new Date();
   let tournamentFilter=null; // tournament object for single-tournament view
@@ -2254,8 +2268,121 @@ function renderRank(){
 }
 
 // ═══════════════════════════════════
-//  TORNEI (lista, chiudi, cancella)
+//  CLASSIFICA COPPIE
 // ═══════════════════════════════════
+function renderRankCouples(){
+  const rankList = document.getElementById('rankList');
+
+  // Raccoglie le stesse partite della vista giocatori (rispetta il filtro corrente)
+  let fromDate=null, toDate=null, subtitle='Coppie — tutti i risultati';
+  const now=new Date();
+  let tournamentFilter=null;
+
+  if(rankFilter==='today'){
+    fromDate=startOfDay(now); toDate=endOfDay(now); subtitle='Coppie — oggi';
+  } else if(rankFilter==='week'){
+    const mon=new Date(now); mon.setDate(now.getDate()-now.getDay()+1);
+    fromDate=startOfDay(mon); toDate=endOfDay(now); subtitle='Coppie — settimana';
+  } else if(rankFilter==='month'){
+    fromDate=new Date(now.getFullYear(),now.getMonth(),1); toDate=endOfDay(now);
+    subtitle=`Coppie — ${monthName(now.getMonth())} ${now.getFullYear()}`;
+  } else if(rankFilter==='season'){
+    const sid=document.getElementById('seasonPicker')?.value;
+    const s=seasons.find(x=>x.id===sid);
+    if(s){ fromDate=new Date(s.start); toDate=new Date(s.end); toDate.setHours(23,59,59); subtitle='Coppie — '+s.name; }
+  } else if(rankFilter==='tournament'){
+    const tid=document.getElementById('rankTournamentPicker')?.value;
+    tournamentFilter=tournaments.find(x=>x.id===tid)||null;
+    if(tournamentFilter) subtitle='Coppie — '+tournamentFilter.name;
+  }
+  document.getElementById('rankSubtitle').textContent = subtitle;
+
+  let allMatches=[];
+  if(tournamentFilter){
+    allMatches = tournamentFilter.matches.filter(m=>m.done);
+  } else {
+    tournaments.forEach(t=>{
+      t.matches.forEach(m=>{
+        if(!m.done) return;
+        if(fromDate&&toDate){ const d=new Date(m.date||t.date); if(d<fromDate||d>toDate) return; }
+        allMatches.push(m);
+      });
+    });
+  }
+
+  if(!allMatches.length){
+    rankList.innerHTML='<div class="empty-state">Nessuna partita completata in questo periodo</div>'; return;
+  }
+
+  // Chiave coppia canonica (ordine alfabetico)
+  function coupleKey(p1,p2){ return [p1,p2].sort().join(' & '); }
+
+  const stats={};
+  function ensureCouple(k){
+    if(!stats[k]) stats[k]={name:k, pts:0,w:0,d:0,l:0,gf:0,ga:0,played:0};
+  }
+
+  allMatches.forEach(m=>{
+    const kA = coupleKey(m.a.p1, m.a.p2);
+    const kB = coupleKey(m.b.p1, m.b.p2);
+    ensureCouple(kA); ensureCouple(kB);
+    const sa=m.sa, sb=m.sb, diff=Math.abs(sa-sb);
+
+    if(sa===sb){
+      stats[kA].pts+=1; stats[kA].d++; stats[kA].gf+=sa; stats[kA].ga+=sb; stats[kA].played++;
+      stats[kB].pts+=1; stats[kB].d++; stats[kB].gf+=sb; stats[kB].ga+=sa; stats[kB].played++;
+    } else if(sa>sb){
+      const wp=diff===1?2:3, lp=diff===1?1:0;
+      stats[kA].pts+=wp; stats[kA].w++; stats[kA].gf+=sa; stats[kA].ga+=sb; stats[kA].played++;
+      stats[kB].pts+=lp; stats[kB].l++; stats[kB].gf+=sb; stats[kB].ga+=sa; stats[kB].played++;
+    } else {
+      const wp=diff===1?2:3, lp=diff===1?1:0;
+      stats[kB].pts+=wp; stats[kB].w++; stats[kB].gf+=sb; stats[kB].ga+=sa; stats[kB].played++;
+      stats[kA].pts+=lp; stats[kA].l++; stats[kA].gf+=sa; stats[kA].ga+=sb; stats[kA].played++;
+    }
+  });
+
+  const sorted = Object.values(stats)
+    .map(s=>({...s, avg: s.played>0 ? +(s.pts/s.played).toFixed(4) : 0}))
+    .sort((a,b)=> b.avg-a.avg || b.pts-a.pts || b.w-a.w);
+
+  const medals=['🥇','🥈','🥉'];
+  const top3 = sorted.slice(0,3).map(s=>s.name);
+
+  const rows = sorted.map((s,i)=>{
+    const pos = i<3 ? medals[i] : (i+1);
+    const rowClass = i===0?'top1':i===1?'top2':i===2?'top3':'';
+    return `<tr class="${rowClass}">
+      <td class="rank-pos-cell">${pos}</td>
+      <td class="player-name-cell" style="max-width:160px;">${s.name}</td>
+      <td class="avg-cell">${s.avg.toFixed(2)}</td>
+      <td class="pts-cell">${s.pts}</td>
+      <td class="num-cell">${s.played}</td>
+      <td class="win-cell">${s.w}</td>
+      <td class="loss-cell">${s.l}</td>
+      <td class="gf-cell">${s.gf}</td>
+      <td class="ga-cell">${s.ga}</td>
+    </tr>`;
+  }).join('');
+
+  rankList.innerHTML = `
+    <div class="rank-table-wrap">
+      <table class="rank-table">
+        <thead><tr>
+          <th style="cursor:default;">#</th>
+          <th>Coppia</th>
+          <th onclick="sortRank('avg')" title="Media pt/partita">Avg</th>
+          <th onclick="sortRank('pts')">PT</th>
+          <th onclick="sortRank('played')">PG</th>
+          <th onclick="sortRank('w')">PV</th>
+          <th onclick="sortRank('l')">PP</th>
+          <th onclick="sortRank('gf')">GV</th>
+          <th onclick="sortRank('ga')">GP</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
 let tlistFilter = 'all';
 
 function filterTlist(f, btn){
@@ -2582,6 +2709,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">2V2 PRO · v1.0.9.1</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">2V2 PRO · v1.0.9</div>
 </body>
 </html>

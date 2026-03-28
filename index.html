@@ -491,6 +491,19 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       </div>
       <button class="btn btn-secondary" style="padding:8px 16px;font-size:20px;line-height:1;" onclick="changePlayerCount(+1)">+</button>
     </div>
+  </div>
+
+  <!-- Numero giri -->
+  <div style="margin-bottom:14px;">
+    <label class="lbl">Giri (ripetizioni del tabellone)</label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-secondary" style="padding:8px 16px;font-size:20px;line-height:1;" onclick="changeRounds(-1)">−</button>
+      <div style="flex:1;text-align:center;">
+        <span id="roundsDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;color:var(--accent2);">1</span>
+        <span style="font-size:12px;color:var(--muted);margin-left:6px;" id="roundsLabel">giro</span>
+      </div>
+      <button class="btn btn-secondary" style="padding:8px 16px;font-size:20px;line-height:1;" onclick="changeRounds(+1)">+</button>
+    </div>
     <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--muted);" id="matchCountInfo">→ 15 partite totali</div>
   </div>
 
@@ -1196,11 +1209,19 @@ function renderPlayers(){
 //  NUOVO TORNEO
 // ═══════════════════════════════════
 let ntPlayerCount = 6;
+let ntRounds = 1;
 
 function changePlayerCount(delta){
   const next = ntPlayerCount + delta;
   if(next < 4) return;
   ntPlayerCount = next;
+  renderSlots();
+}
+
+function changeRounds(delta){
+  const next = ntRounds + delta;
+  if(next < 1) return;
+  ntRounds = next;
   renderSlots();
 }
 
@@ -1224,14 +1245,29 @@ function renderNewTournament(){
   document.getElementById('activeSeason').innerHTML = asSel && !isDisabled
     ? `<span style="color:var(--accent2);font-weight:600;">${asSel.name}</span> <span style="color:var(--muted)">(${fmtDate(asSel.start)} – ${fmtDate(asSel.end)})</span>`
     : `<span style="color:var(--red)">${isDisabled ? 'La stagione corrente è disabilitata — scegline un\'altra nella tab Stagioni' : 'Nessuna stagione attiva — creane una nella tab Stagioni'}</span>`;
+  // Reset giri al valore corrente
+  const rDisp = document.getElementById('roundsDisplay');
+  const rLabel = document.getElementById('roundsLabel');
+  if(rDisp) rDisp.textContent = ntRounds;
+  if(rLabel) rLabel.textContent = ntRounds === 1 ? 'giro' : 'giri';
   renderSlots();
 }
 
 function renderSlots(){
   document.getElementById('playerCountDisplay').textContent = ntPlayerCount;
+
+  // Aggiorna display giri
+  const rDisp = document.getElementById('roundsDisplay');
+  const rLabel = document.getElementById('roundsLabel');
+  if(rDisp) rDisp.textContent = ntRounds;
+  if(rLabel) rLabel.textContent = ntRounds === 1 ? 'giro' : 'giri';
+
   const isOdd = ntPlayerCount % 2 !== 0;
-  const matchInfo = `→ ${calcMatchCount(ntPlayerCount)} partite${isOdd ? ' · 1 giocatore a riposo per partita' : ''}`;
-  document.getElementById('matchCountInfo').textContent = matchInfo;
+  const baseMatches = calcMatchCount(ntPlayerCount);
+  const totalMatches = baseMatches * ntRounds;
+  const matchInfo = `→ ${baseMatches} partite × ${ntRounds} ${ntRounds===1?'giro':'giri'} = <strong>${totalMatches} partite totali</strong>${isOdd ? ' · 1 giocatore a riposo per partita' : ''}`;
+  const infoEl = document.getElementById('matchCountInfo');
+  if(infoEl) infoEl.innerHTML = matchInfo;
 
   const prev = [];
   for(let i=1; i<=20; i++){
@@ -1291,10 +1327,19 @@ function startTournament(){
 
   const names = Array.from({length: ntPlayerCount}, (_,i) => document.getElementById('slot'+(i+1))?.value||'');
   if(names.some(n=>!n)){ alert('Seleziona tutti i giocatori!'); return; }
-  if(new Set(names).size < ntPlayerCount){ alert('Ogni giocatore deve essere diverso — rimuovi i duplicati evidenziati!'); return; }
+  if(new Set(names).size < ntPlayerCount){ alert('Ogni giocatore deve essere diverso!'); return; }
 
   const pairs = allPairs(names);
-  const matches = allMatchups(pairs);
+  // Genera i match base e poi li replica per ogni giro, aggiornando gli id progressivamente
+  const baseMatches = allMatchups(pairs);
+  let allMatches = [];
+  for(let g=0; g<ntRounds; g++){
+    const offset = g * baseMatches.length;
+    baseMatches.forEach(m=>{
+      allMatches.push({ ...m, id: m.id + offset, giro: g+1 });
+    });
+  }
+
   const t = {
     id: uid(),
     name: tName,
@@ -1302,15 +1347,16 @@ function startTournament(){
     date: new Date().toISOString(),
     players: names,
     pairs,
-    matches
+    matches: allMatches,
+    rounds: ntRounds
   };
   tournaments.push(t);
-  addLog('tournaments', `Creato torneo: "${tName}" (${names.length} giocatori)`);
+  addLog('tournaments', `Creato torneo: "${tName}" (${names.length} giocatori, ${ntRounds} ${ntRounds===1?'giro':'giri'}, ${allMatches.length} partite)`);
   save('tournaments', tournaments);
   curTournament = tournaments.length-1;
   openMatchId = null; tempScores={};
-  // reset form
   document.getElementById('tournamentName').value='';
+  ntRounds = 1; // reset giri
   updateBadge();
   showPage('matches');
 }
@@ -1423,6 +1469,10 @@ function renderMatches(){
     return true;
   });
 
+  // Raggruppa per giro se il torneo ha più giri
+  const hasRounds = (t.rounds||1) > 1;
+  let lastGiro = null;
+
   list.innerHTML = ms.map(m=>{
     const mid = String(m.id);
     const isOpen = openMatchId === mid;
@@ -1435,7 +1485,15 @@ function renderMatches(){
     const byeHtml = (m.bye && m.bye.length)
       ? `<div class="bye-bar"><span>☕</span>RIPOSO: ${m.bye.join(' · ')}</div>`
       : '';
-    return `<div class="match-card ${m.done?'done':''} ${isOpen?'open-card':''}" id="mcard-${mid}" onclick="toggleMatch('${mid}')">
+
+    // Separatore giro
+    let giroHeader = '';
+    if(hasRounds && m.giro && m.giro !== lastGiro){
+      lastGiro = m.giro;
+      giroHeader = `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;padding:10px 4px 6px;margin-top:${m.giro>1?'8px':'0'};">— Giro ${m.giro} —</div>`;
+    }
+
+    return giroHeader + `<div class="match-card ${m.done?'done':''} ${isOpen?'open-card':''}" id="mcard-${mid}" onclick="toggleMatch('${mid}')">
       <div class="match-row">
         <div class="match-team">
           <div class="match-players-uni">${m.a.p1}</div>

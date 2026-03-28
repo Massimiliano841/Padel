@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>2V2 Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -383,6 +384,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
   <button class="tab" onclick="showPage('seasons')" id="tab-seasons">Stagioni</button>
   <button class="tab" onclick="showPage('log')" id="tab-log">Log</button>
+  <button class="tab" onclick="showPage('export')" id="tab-export">📊 Export</button>
   <button class="tab" onclick="showPage('users')" id="tab-users" style="display:none;">👤 Utenti</button>
   <div style="margin-left:auto;padding:0 6px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
     <div id="fb-status" style="font-size:11px;white-space:nowrap;">🔄</div>
@@ -436,6 +438,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">📅 Stagioni</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
+  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export Excel</button>
   <button class="tab" id="bn-users-mobile" style="text-align:left;padding:12px 8px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
 </div>
 
@@ -667,6 +670,75 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     </div>
     <button class="btn btn-primary btn-full" onclick="adminCreateUser()">+ Crea account</button>
   </div>
+</div>
+
+<!-- ════ EXPORT ════ -->
+<div class="page" id="page-export">
+  <div style="padding-top:10px;margin-bottom:18px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">EXPORT</div>
+    <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Esporta le partite in Excel (.xlsx)</div>
+  </div>
+
+  <!-- Tipo filtro -->
+  <div class="sec-title">Tipo di export</div>
+  <div class="pills" style="margin-bottom:18px;" id="exportTypePills">
+    <button class="pill active" onclick="setExportType('tournament',this)">Per torneo</button>
+    <button class="pill" onclick="setExportType('daterange',this)">Per periodo</button>
+    <button class="pill" onclick="setExportType('all',this)">Tutto</button>
+  </div>
+
+  <!-- Filtro torneo -->
+  <div id="exportTournamentRow" style="margin-bottom:16px;">
+    <label class="lbl">Seleziona torneo</label>
+    <select class="inp" id="exportTournamentPicker" onchange="updateExportPreview()"></select>
+  </div>
+
+  <!-- Filtro date -->
+  <div id="exportDateRow" style="display:none;margin-bottom:16px;">
+    <div class="form-row">
+      <div>
+        <label class="lbl">Data da</label>
+        <input class="inp" type="date" id="exportDateFrom" onchange="updateExportPreview()">
+      </div>
+      <div>
+        <label class="lbl">Data a</label>
+        <input class="inp" type="date" id="exportDateTo" onchange="updateExportPreview()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Opzioni colonne -->
+  <div class="sec-title">Colonne da includere</div>
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:18px;display:flex;flex-direction:column;gap:8px;">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-torneo" checked> Nome torneo
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-data" checked> Data partita
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-squadre" checked> Squadre (A1, A2, B1, B2)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-score" checked> Risultato (score)
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-punti" checked> Punti assegnati
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-giro"> Giro
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-etichetta"> Etichetta extra
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" id="col-stagione"> Stagione
+    </label>
+  </div>
+
+  <!-- Anteprima e bottone -->
+  <div id="exportPreview" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);min-height:40px;"></div>
+  <button class="btn btn-primary btn-full" style="font-size:18px;" onclick="doExport()">⬇ Scarica Excel</button>
 </div>
 
 <!-- MODAL -->
@@ -1019,6 +1091,162 @@ function fmtDateTime(iso){
     + ' ' + d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
 }
 
+// ═══════════════════════════════════
+//  EXPORT EXCEL
+// ═══════════════════════════════════
+let exportType = 'tournament';
+
+function setExportType(type, btn){
+  exportType = type;
+  document.querySelectorAll('#exportTypePills .pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('exportTournamentRow').style.display = type==='tournament' ? '' : 'none';
+  document.getElementById('exportDateRow').style.display      = type==='daterange'   ? '' : 'none';
+  updateExportPreview();
+}
+
+function renderExportPage(){
+  // Popola picker torneo
+  const sel = document.getElementById('exportTournamentPicker');
+  if(sel){
+    sel.innerHTML = tournaments.slice().reverse()
+      .map(t=>`<option value="${t.id}">${t.closed?'[C] ':''}${t.name} · ${fmtDate(t.date)}</option>`)
+      .join('');
+  }
+  // Date default: ultimi 30 giorni
+  const now = new Date();
+  const from = new Date(now); from.setDate(from.getDate()-30);
+  const toEl   = document.getElementById('exportDateTo');
+  const fromEl = document.getElementById('exportDateFrom');
+  if(toEl && !toEl.value)   toEl.value   = now.toISOString().slice(0,10);
+  if(fromEl && !fromEl.value) fromEl.value = from.toISOString().slice(0,10);
+  updateExportPreview();
+}
+
+function getExportMatches(){
+  let matches = [];
+
+  if(exportType === 'tournament'){
+    const id = document.getElementById('exportTournamentPicker')?.value;
+    const t  = tournaments.find(x=>x.id===id);
+    if(!t) return [];
+    matches = t.matches.filter(m=>m.done).map(m=>({...m, _tName:t.name, _tSeasonId:t.seasonId}));
+
+  } else if(exportType === 'daterange'){
+    const from = document.getElementById('exportDateFrom')?.value;
+    const to   = document.getElementById('exportDateTo')?.value;
+    if(!from||!to) return [];
+    const dFrom = new Date(from), dTo = new Date(to+'T23:59:59');
+    tournaments.forEach(t=>{
+      t.matches.filter(m=>m.done && m.date).forEach(m=>{
+        const d = new Date(m.date);
+        if(d>=dFrom && d<=dTo) matches.push({...m, _tName:t.name, _tSeasonId:t.seasonId});
+      });
+    });
+
+  } else { // all
+    tournaments.forEach(t=>{
+      t.matches.filter(m=>m.done).forEach(m=>{
+        matches.push({...m, _tName:t.name, _tSeasonId:t.seasonId});
+      });
+    });
+  }
+  return matches;
+}
+
+function updateExportPreview(){
+  const el = document.getElementById('exportPreview');
+  if(!el) return;
+  const ms = getExportMatches();
+  el.textContent = ms.length
+    ? `${ms.length} partite trovate pronte per l'export`
+    : 'Nessuna partita trovata con i filtri selezionati';
+}
+
+function doExport(){
+  if(typeof XLSX === 'undefined'){ alert('Libreria Excel non caricata, ricarica la pagina'); return; }
+  const ms = getExportMatches();
+  if(!ms.length){ alert('Nessuna partita da esportare'); return; }
+
+  // Colonne attive
+  const cols = {
+    torneo:    document.getElementById('col-torneo')?.checked,
+    data:      document.getElementById('col-data')?.checked,
+    squadre:   document.getElementById('col-squadre')?.checked,
+    score:     document.getElementById('col-score')?.checked,
+    punti:     document.getElementById('col-punti')?.checked,
+    giro:      document.getElementById('col-giro')?.checked,
+    etichetta: document.getElementById('col-etichetta')?.checked,
+    stagione:  document.getElementById('col-stagione')?.checked,
+  };
+
+  // Intestazioni
+  const headers = [];
+  if(cols.torneo)    headers.push('Torneo');
+  if(cols.stagione)  headers.push('Stagione');
+  if(cols.data)      headers.push('Data');
+  if(cols.giro)      headers.push('Giro');
+  if(cols.squadre)   headers.push('A1','A2','B1','B2');
+  if(cols.score)     headers.push('Score A','Score B');
+  if(cols.punti)     headers.push('Pt A','Pt B','Esito');
+  if(cols.etichetta) headers.push('Etichetta');
+
+  // Righe
+  const rows = ms.map(m=>{
+    const diff = Math.abs(m.sa - m.sb);
+    let ptA=0, ptB=0, esito='';
+    if(m.sa===m.sb){ ptA=1; ptB=1; esito='Pareggio'; }
+    else if(m.sa>m.sb){ ptA=diff===1?2:3; ptB=diff===1?1:0; esito='Vince A'; }
+    else              { ptB=diff===1?2:3; ptA=diff===1?1:0; esito='Vince B'; }
+    const season = seasons.find(s=>s.id===m._tSeasonId);
+
+    const row = [];
+    if(cols.torneo)    row.push(m._tName||'');
+    if(cols.stagione)  row.push(season?.name||'');
+    if(cols.data)      row.push(m.date ? new Date(m.date).toLocaleDateString('it-IT') : '');
+    if(cols.giro)      row.push(m.giro||1);
+    if(cols.squadre)   row.push(m.a.p1, m.a.p2, m.b.p1, m.b.p2);
+    if(cols.score)     row.push(m.sa, m.sb);
+    if(cols.punti)     row.push(ptA, ptB, esito);
+    if(cols.etichetta) row.push(m.label||'');
+    return row;
+  });
+
+  // Crea workbook
+  const wb = XLSX.utils.book_new();
+  const wsData = [headers, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Larghezze colonne
+  ws['!cols'] = headers.map(h=>{
+    const maxLen = Math.max(h.length, ...rows.map(r=>String(r[headers.indexOf(h)]||'').length));
+    return { wch: Math.min(Math.max(maxLen+2, 10), 40) };
+  });
+
+  // Stile header (grassetto — supportato da SheetJS con xlsx-style, fallback semplice)
+  XLSX.utils.book_append_sheet(wb, ws, 'Partite');
+
+  // Foglio riepilogo per torneo
+  const summary = {};
+  ms.forEach(m=>{
+    const key = m._tName||'—';
+    if(!summary[key]) summary[key]={partite:0, completate:0};
+    summary[key].partite++;
+    summary[key].completate++;
+  });
+  const sumHeaders = ['Torneo','Partite giocate'];
+  const sumRows = Object.entries(summary).map(([k,v])=>[k, v.completate]);
+  const wsSummary = XLSX.utils.aoa_to_sheet([sumHeaders,...sumRows]);
+  wsSummary['!cols'] = [{wch:30},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Riepilogo');
+
+  // Nome file
+  const dateStr = new Date().toISOString().slice(0,10);
+  const fileName = `2v2pro_export_${dateStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  addLog('auth', `Export Excel scaricato: ${ms.length} partite`);
+}
+
 function setStatus(s){
   const icon = { connecting:'🔄', online:'🟢', offline:'🔴' }[s]||'🔴';
   const el = document.getElementById('fb-status');
@@ -1092,6 +1320,7 @@ function showPage(name){
   if(name==='seasons') renderSeasons();
   if(name==='log')     renderLog();
   if(name==='users')   renderUserList();
+  if(name==='export')  renderExportPage();
 }
 
 // ═══════════════════════════════════

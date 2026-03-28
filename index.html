@@ -521,7 +521,10 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,7vw,34px);font-weight:800;letter-spacing:3px;line-height:1;" id="matchPageTitle">PARTITE</div>
       <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:3px;" id="matchPageSub"></div>
     </div>
-    <select class="inp" style="width:auto;min-width:150px;max-width:220px;font-size:12px;" id="tournamentSelector" onchange="selectTournament(this.value)"></select>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-sm" id="btnAddMatch" onclick="toggleAddMatchPanel()" style="border-color:var(--accent);color:var(--accent);display:none;">+ Partita extra</button>
+      <select class="inp" style="width:auto;min-width:150px;max-width:220px;font-size:12px;" id="tournamentSelector" onchange="selectTournament(this.value)"></select>
+    </div>
   </div>
   <div class="pills" id="matchFilter">
     <button class="pill active" onclick="filterMatches('all',this)">Tutte</button>
@@ -529,6 +532,36 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <button class="pill" onclick="filterMatches('done',this)">Completate</button>
   </div>
   <div class="match-list" id="matchList"></div>
+
+  <!-- Aggiungi partita extra -->
+  <div id="addMatchPanel" style="display:none;margin-top:20px;">
+    <div class="sec-title" style="margin-bottom:10px;">+ Aggiungi partita extra</div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label class="lbl">Etichetta (opzionale)</label>
+        <input class="inp" id="extra-label" placeholder="es. Finale, Spareggio, Amichevole…" maxlength="30">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label class="lbl">🔵 Squadra A — G1</label>
+          <select class="inp" id="extra-a1" style="font-size:13px;"></select>
+        </div>
+        <div>
+          <label class="lbl">🔴 Squadra B — G1</label>
+          <select class="inp" id="extra-b1" style="font-size:13px;"></select>
+        </div>
+        <div>
+          <label class="lbl">🔵 Squadra A — G2</label>
+          <select class="inp" id="extra-a2" style="font-size:13px;"></select>
+        </div>
+        <div>
+          <label class="lbl">🔴 Squadra B — G2</label>
+          <select class="inp" id="extra-b2" style="font-size:13px;"></select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addExtraMatch()">+ Aggiungi partita</button>
+    </div>
+  </div>
 </div>
 
 <!-- ════ CLASSIFICA ════ -->
@@ -1409,6 +1442,12 @@ function renderMatches(){
   const list = document.getElementById('matchList');
   const t = getMatches();
 
+  // Mostra/nasconde bottone partita extra
+  const btnAdd = document.getElementById('btnAddMatch');
+  const panelAdd = document.getElementById('addMatchPanel');
+  if(btnAdd) btnAdd.style.display = (t && !t.closed) ? '' : 'none';
+  if(panelAdd && (t?.closed || !t)) { panelAdd.style.display='none'; if(btnAdd) btnAdd.textContent='+ Partita extra'; }
+
   // Update header
   const titleEl = document.getElementById('matchPageTitle');
   const subEl   = document.getElementById('matchPageSub');
@@ -1500,13 +1539,14 @@ function renderMatches(){
           <div class="match-players-uni match-p2">${m.a.p2}</div>
         </div>
         <div class="match-center">
-          <span class="match-num">P${m.id+1}</span>
+          <span class="match-num">P${m.id+1}${m.extra?' <span style="font-size:8px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 4px;vertical-align:middle;">EXTRA</span>':''}</span>
           ${m.done
             ? `<div class="match-score-disp"><span class="sa">${m.sa}</span><span class="sep">:</span><span class="sb">${m.sb}</span></div>`
             : `<div class="match-score-disp pending">VS</div>`}
           ${m.done
             ? `<span class="match-status status-done">${ptLabel}</span>`
             : `<span class="match-status status-pending">In attesa</span>`}
+          ${m.label ? `<div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--accent);margin-top:3px;text-transform:uppercase;">${m.label}</div>` : ''}
         </div>
         <div class="match-team right">
           <div class="match-players-uni">${m.b.p1}</div>
@@ -1627,6 +1667,68 @@ function undoMatch(id){
   openMatchId=null;
   save('tournaments', tournaments);
   updateBadge();
+  renderMatches();
+}
+
+// ═══════════════════════════════════
+//  PARTITE EXTRA
+// ═══════════════════════════════════
+function toggleAddMatchPanel(){
+  const panel = document.getElementById('addMatchPanel');
+  if(!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if(!open) populateExtraSelects();
+  const btn = document.getElementById('btnAddMatch');
+  if(btn) btn.textContent = open ? '+ Partita extra' : '✕ Chiudi';
+}
+
+function populateExtraSelects(){
+  const t = getMatches();
+  if(!t) return;
+  const opts = `<option value="">— Scegli —</option>` +
+    (t.players||[]).map(p=>`<option value="${p}">${p}</option>`).join('');
+  ['extra-a1','extra-a2','extra-b1','extra-b2'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = opts;
+  });
+}
+
+function addExtraMatch(){
+  const t = getMatches();
+  if(!t){ alert('Nessun torneo aperto'); return; }
+  if(t.closed){ alert('Il torneo è chiuso'); return; }
+
+  const a1 = document.getElementById('extra-a1')?.value;
+  const a2 = document.getElementById('extra-a2')?.value;
+  const b1 = document.getElementById('extra-b1')?.value;
+  const b2 = document.getElementById('extra-b2')?.value;
+  const label = document.getElementById('extra-label')?.value.trim() || '';
+
+  if(!a1||!a2||!b1||!b2){ alert('Seleziona tutti e 4 i giocatori'); return; }
+  if(new Set([a1,a2,b1,b2]).size < 4){ alert('I 4 giocatori devono essere tutti diversi'); return; }
+
+  const maxId = t.matches.reduce((mx,m)=>Math.max(mx, Number(m.id)), -1);
+
+  function findOrCreatePair(p1, p2){
+    let pair = t.pairs.find(p=>(p.p1===p1&&p.p2===p2)||(p.p1===p2&&p.p2===p1));
+    if(!pair){ pair={id:t.pairs.length, p1, p2}; t.pairs.push(pair); }
+    return pair;
+  }
+
+  t.matches.push({
+    id:    maxId + 1,
+    a:     findOrCreatePair(a1, a2),
+    b:     findOrCreatePair(b1, b2),
+    sa: 0, sb: 0, done: false, bye: null, extra: true,
+    label: label || null
+  });
+
+  addLog('matches', `Partita extra aggiunta${label?' "'+label+'"':''}: ${a1}&${a2} vs ${b1}&${b2} — "${t.name}"`);
+  save('tournaments', tournaments);
+  updateBadge();
+  ['extra-a1','extra-a2','extra-b1','extra-b2','extra-label'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  toggleAddMatchPanel();
   renderMatches();
 }
 
@@ -2173,5 +2275,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">2V2 PRO · v1.0.8</div>
 </body>
 </html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2V2 Pro — Note di release v1.0.8</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f9f9f7; color: #1a1a1a; margin: 0; padding: 2rem; }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin: 0 0 4px; }
+  .badge { font-size: 13px; font-weight: 500; background: #e6f1fb; color: #185fa5; padding: 3px 10px; border-radius: 8px; }
+  .date { font-size: 13px; color: #6b7280; margin: 0 0 1.5rem; }
+  .cards { display: flex; flex-direction: column; gap: 10px; }
+  .card { background: #fff; border: 0.5px solid rgba(0,0,0,0.12); border-radius: 12px; overflow: hidden; }
+  .card-header { padding: 10px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green  { background: #5DCAA5; }
+  .dot-amber  { background: #EF9F27; }
+  .dot-red    { background: #E24B4A; }
+  .card-header span { font-size: 13px; font-weight: 500; }
+  .card-body { padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; }
+  .card-body p { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6; }
+  code { font-family: monospace; font-size: 12px; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
+  .extra-badge { font-size: 11px; background: #e6f1fb; color: #185fa5; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+  .header-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .footer { font-size: 12px; color: #9ca3af; margin: 1.5rem 0 0; text-align: right; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header-row">
+    <h1>2V2 Pro</h1>
+    <span class="badge">v1.0.8</span>
+  </div>
+  <p class="date">28 marzo 2026</p>
+
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-green"></span><span>Autenticazione — sistema admin</span></div>
+      <div class="card-body">
+        <p>Rimossa la registrazione pubblica. L'utente <code>admin</code> è il master e al primo accesso imposta la propria password.</p>
+        <p>Tab <strong>Utenti</strong> visibile solo all'admin: crea account, cambia password, elimina utenti.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-green"></span><span>Log attività</span></div>
+      <div class="card-body">
+        <p>Nuova tab <strong>Log</strong> con storico immutabile delle modifiche per utente. Traccia: giocatori, tornei, stagioni, risultati partite, accessi. Filtrabile per utente. Sincronizzato in tempo reale su tutti i dispositivi.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-green"></span><span>Giri del torneo</span></div>
+      <div class="card-body">
+        <p>In creazione torneo è ora possibile scegliere il numero di <strong>giri</strong> (ripetizioni del tabellone). Le partite vengono generate moltiplicando il tabellone base × giri, con separatori visivi nella lista partite.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-green"></span><span>Partite extra</span></div>
+      <div class="card-body">
+        <p>Nella tab <strong>Partite</strong> è possibile aggiungere partite extra a un torneo aperto, scegliendo liberamente i 4 giocatori. Supporto per <strong>etichetta opzionale</strong> (es. Finale, Spareggio) visibile nella card sotto il punteggio. Badge <span class="extra-badge">EXTRA</span> per distinguerle dalle partite generate.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-green"></span><span>Interfaccia mobile</span></div>
+      <div class="card-body">
+        <p>Layout adattivo per smartphone: bottom navigation con le 4 sezioni principali + menu "Altro" per Tornei, Stagioni, Log e Utenti. Header fisso con logo, stato connessione e chip utente. Ogni pagina ottimizzata per schermi piccoli.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-amber"></span><span>Fix e miglioramenti</span></div>
+      <div class="card-body">
+        <p>Risolto bug CSS che causava la visualizzazione permanente del modal di conferma su tutte le pagine.</p>
+        <p>Risolto errore di sintassi JS (<code>setStatus</code> orfana) che bloccava l'avvio dell'app.</p>
+        <p>Migrazione da Firebase/JSONBin a Supabase REST API per connettività stabile e scritture affidabili.</p>
+        <p>Numero versione visibile in fondo all'app.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="dot dot-red"></span><span>Rimosso</span></div>
+      <div class="card-body">
+        <p>Registrazione pubblica — gli account si creano solo dall'admin.</p>
+        <p>Pulsante "Cancella log" — il log è ora immutabile.</p>
+        <p>Form di configurazione Firebase/JSONBin — non più necessario.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="footer">2V2 Pro · v1.0.8 · massimiliano841.github.io/Padel</p>
+</div>
+</body>
+</html>

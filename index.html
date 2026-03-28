@@ -729,7 +729,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       <input type="checkbox" id="col-giro"> Giro
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="col-etichetta"> Etichetta extra
+      <input type="checkbox" id="col-etichetta" checked> Etichetta extra
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
       <input type="checkbox" id="col-stagione"> Stagione
@@ -1218,8 +1218,8 @@ function doExport(){
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
   // Larghezze colonne
-  ws['!cols'] = headers.map(h=>{
-    const maxLen = Math.max(h.length, ...rows.map(r=>String(r[headers.indexOf(h)]||'').length));
+  ws['!cols'] = headers.map((h, idx)=>{
+    const maxLen = Math.max(h.length, ...rows.map(r=>String(r[idx]||'').length));
     return { wch: Math.min(Math.max(maxLen+2, 10), 40) };
   });
 

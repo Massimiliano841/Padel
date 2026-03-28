@@ -611,11 +611,10 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
     <button class="pill" onclick="filterMatches('pending',this)">Da giocare</button>
     <button class="pill" onclick="filterMatches('done',this)">Completate</button>
   </div>
-  <div class="match-list" id="matchList"></div>
 
-  <!-- Aggiungi partita extra -->
+  <!-- Aggiungi partita extra — in cima, sopra la lista -->
 
-  <div id="addMatchPanel" style="display:none;margin-top:20px;">
+  <div id="addMatchPanel" style="display:none;margin-bottom:16px;">
     <div class="sec-title" style="margin-bottom:10px;">+ Aggiungi partita extra</div>
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
       <div>
@@ -644,6 +643,8 @@ background:linear-gradient(90deg,var(–accent),var(–accent2));
       <button class="btn btn-primary btn-full" onclick="addExtraMatch()">+ Aggiungi partita</button>
     </div>
   </div>
+
+  <div class="match-list" id="matchList"></div>
 </div>
 
 <!-- ════ CLASSIFICA ════ -->
@@ -2110,7 +2111,7 @@ function addExtraMatch(){
     return pair;
   }
 
-  t.matches.unshift({
+  t.matches.push({
     id:    maxId + 1,
     a:     findOrCreatePair(a1, a2),
     b:     findOrCreatePair(b1, b2),
@@ -2894,6 +2895,6 @@ function confetti(){
 // ════ fine app ════
 </script>
 
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.11</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
 </body>
 </html>

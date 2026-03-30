@@ -453,7 +453,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab active" onclick="showPage('bookings')" id="tab-bookings">📅 Prenotazioni</button>
   <button class="tab" onclick="showPage('matches')" id="tab-matches">Partite <span class="badge" id="badge-matches">—</span></button>
   <button class="tab" onclick="showPage('rank')" id="tab-rank">Classifica</button>
-  <button class="tab" onclick="showPage('newt')" id="tab-newt">Torneo</button>
+  <button class="tab" onclick="showPage('newt')" id="tab-newt">Nuovo Torneo</button>
   <button class="tab" onclick="showPage('seasons')" id="tab-seasons">Stagioni</button>
   <button class="tab" onclick="showPage('players')" id="tab-players">Giocatori</button>
   <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
@@ -542,6 +542,28 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div class="nt-header">
     <h2>NUOVO<br>TORNEO</h2>
     <p>Configura il torneo · tutti contro tutti</p>
+  </div>
+
+  <!-- Importa da prenotazione (opzionale) -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;" onclick="toggleImportBooking()">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">📅</span>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;">Importa da prenotazione</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px;">Compila automaticamente nome e giocatori</div>
+        </div>
+      </div>
+      <span id="import-arrow" style="font-size:12px;color:var(--muted);">▼</span>
+    </div>
+    <div id="import-booking-panel" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <label class="lbl">Seleziona prenotazione</label>
+      <select class="inp" id="import-booking-select" style="font-size:13px;" onchange="previewImportBooking()">
+        <option value="">— Scegli una prenotazione —</option>
+      </select>
+      <div id="import-booking-preview" style="margin-top:10px;font-size:12px;color:var(--muted);min-height:16px;"></div>
+      <button class="btn btn-primary btn-full" style="margin-top:10px;font-size:15px;" onclick="applyImportBooking()">✓ Importa dati</button>
+    </div>
   </div>
   <div class="info-box">
     <span>📋</span>
@@ -1833,6 +1855,97 @@ function calcMatchCount(n){
     const c4 = n*(n-1)*(n-2)*(n-3)/24;
     return c4 * 3;
   }
+}
+
+// ═══════════════════════════════════
+//  IMPORTA DA PRENOTAZIONE
+// ═══════════════════════════════════
+function toggleImportBooking(){
+  const panel = document.getElementById('import-booking-panel');
+  const arrow = document.getElementById('import-arrow');
+  if(!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if(arrow) arrow.textContent = open ? '▼' : '▲';
+  if(!open) populateImportBookingSelect();
+}
+
+function populateImportBookingSelect(){
+  const sel = document.getElementById('import-booking-select');
+  if(!sel) return;
+  const today = new Date().toISOString().slice(0,10);
+  // Mostra tutte le prenotazioni, future prima
+  const sorted = [...bookings].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const future = sorted.filter(b=> b.date >= today);
+  const past   = sorted.filter(b=> b.date <  today);
+  sel.innerHTML = `<option value="">— Scegli una prenotazione —</option>`;
+  if(future.length){
+    const grp = document.createElement('optgroup');
+    grp.label = 'Prossimi';
+    future.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=`${b.title} · ${fmtDate(b.date)}${b.time?' '+b.time:''}`; grp.appendChild(o); });
+    sel.appendChild(grp);
+  }
+  if(past.length){
+    const grp = document.createElement('optgroup');
+    grp.label = 'Passati';
+    past.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=`${b.title} · ${fmtDate(b.date)}`; grp.appendChild(o); });
+    sel.appendChild(grp);
+  }
+  document.getElementById('import-booking-preview').textContent = '';
+}
+
+function previewImportBooking(){
+  const id = document.getElementById('import-booking-select')?.value;
+  const prev = document.getElementById('import-booking-preview');
+  if(!prev) return;
+  if(!id){ prev.textContent=''; return; }
+  const b = bookings.find(x=>x.id===id);
+  if(!b){ prev.textContent=''; return; }
+  const pCount = b.participants?.length || 0;
+  prev.innerHTML = `
+    <span style="color:var(--text);font-weight:600;">${b.title}</span>
+    ${b.place ? ` · 📍 ${b.place}` : ''}
+    · 👥 ${pCount} partecipant${pCount===1?'e':'i'}
+    ${pCount>=4 ? '<span style="color:var(--accent2);margin-left:4px;">✓ abbastanza per un torneo</span>' : '<span style="color:var(--red);margin-left:4px;">⚠ servono almeno 4</span>'}`;
+}
+
+function applyImportBooking(){
+  const id = document.getElementById('import-booking-select')?.value;
+  if(!id){ alert('Seleziona una prenotazione'); return; }
+  const b = bookings.find(x=>x.id===id);
+  if(!b) return;
+
+  // Imposta nome torneo
+  const nameEl = document.getElementById('tournamentName');
+  if(nameEl && !nameEl.value) nameEl.value = b.title;
+
+  // Imposta numero giocatori se ci sono partecipanti sufficienti
+  const pCount = b.participants?.length || 0;
+  if(pCount >= 4){
+    ntPlayerCount = pCount;
+    renderSlots();
+    // Pre-seleziona i giocatori negli slot se presenti in anagrafica
+    let assigned = 0;
+    b.participants.forEach((name, i)=>{
+      const slot = document.getElementById('slot'+(i+1));
+      if(slot){
+        const opt = Array.from(slot.options).find(o=>o.value===name);
+        if(opt){ slot.value=name; assigned++; }
+      }
+    });
+    onSlotChange();
+    if(assigned > 0){
+      alert(`✓ Importato: "${b.title}"\n${assigned} giocatori preselezionati`);
+    } else {
+      alert(`✓ Nome torneo importato.\nI partecipanti non sono presenti in anagrafica — selezionali manualmente.`);
+    }
+  } else {
+    alert(`✓ Nome torneo importato.\nLa prenotazione ha ${pCount} partecipanti — seleziona i giocatori manualmente.`);
+  }
+
+  // Chiudi pannello
+  document.getElementById('import-booking-panel').style.display = 'none';
+  document.getElementById('import-arrow').textContent = '▼';
 }
 
 function renderNewTournament(){
@@ -3134,4 +3247,3 @@ function confetti(){
 <div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
 </body>
 </html>
-

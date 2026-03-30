@@ -5,6 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Padel Pro</title>
 
+<!-- Service Worker — forza aggiornamento PWA ad ogni nuova versione -->
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+    reg.addEventListener('updatefound', ()=>{
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', ()=>{
+        if(newSW.state === 'installed' && navigator.serviceWorker.controller){
+          const banner = document.getElementById('sw-update-banner');
+          if(banner) banner.style.display = 'flex';
+        }
+      });
+    });
+  });
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(!refreshing){ refreshing=true; window.location.reload(); }
+  });
+}
+function swUpdate(){
+  navigator.serviceWorker.getRegistration().then(reg=>{
+    if(reg?.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+    else window.location.reload();
+  });
+}
+</script>
+
 <!-- PWA meta tags -->
 <meta name="application-name" content="Padel Pro">
 <meta name="apple-mobile-web-app-title" content="Padel Pro">
@@ -442,6 +469,12 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE HEADER (solo smartphone) -->
 <div class="mobile-header" id="mobileHeader" style="display:none;">
+
+<!-- BANNER AGGIORNAMENTO -->
+<div id="sw-update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:var(--accent);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;box-shadow:0 2px 12px rgba(0,0,0,.2);">
+  <span>🔄 Nuova versione disponibile!</span>
+  <button onclick="swUpdate()" style="background:#fff;color:var(--accent);border:none;border-radius:7px;padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;cursor:pointer;">AGGIORNA ORA</button>
+</div>
   <div class="mobile-header-logo">PADEL PRO</div>
   <div class="mobile-header-right">
     <div id="fb-status-mobile" style="font-size:13px;">🔄</div>
@@ -3246,6 +3279,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.1</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
 </body>
 </html>

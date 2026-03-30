@@ -450,15 +450,15 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 <!-- NAV (desktop) -->
 <nav class="nav">
   <div class="nav-logo">PADEL</div>
-  <button class="tab active" onclick="showPage('players')" id="tab-players">Giocatori</button>
-  <button class="tab" onclick="showPage('newt')" id="tab-newt">Torneo</button>
+  <button class="tab active" onclick="showPage('bookings')" id="tab-bookings">📅 Prenotazioni</button>
   <button class="tab" onclick="showPage('matches')" id="tab-matches">Partite <span class="badge" id="badge-matches">—</span></button>
   <button class="tab" onclick="showPage('rank')" id="tab-rank">Classifica</button>
-  <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
+  <button class="tab" onclick="showPage('newt')" id="tab-newt">Torneo</button>
   <button class="tab" onclick="showPage('seasons')" id="tab-seasons">Stagioni</button>
-  <button class="tab" onclick="showPage('log')" id="tab-log">Log</button>
-  <button class="tab" onclick="showPage('bookings')" id="tab-bookings">📅 Prenotazioni</button>
+  <button class="tab" onclick="showPage('players')" id="tab-players">Giocatori</button>
+  <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
   <button class="tab" onclick="showPage('export')" id="tab-export">📊 Export</button>
+  <button class="tab" onclick="showPage('log')" id="tab-log">Log</button>
   <button class="tab" onclick="showPage('users')" id="tab-users" style="display:none;">👤 Utenti</button>
   <div style="margin-left:auto;padding:0 6px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
     <div id="fb-status" style="font-size:11px;white-space:nowrap;">🔄</div>
@@ -489,11 +489,8 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- BOTTOM NAV (solo mobile) -->
 <nav class="bottom-nav" id="bottomNav">
-  <button class="bn-item active" onclick="showPage('players')" id="bn-players">
-    <span class="bn-icon">👤</span>Giocatori
-  </button>
-  <button class="bn-item" onclick="showPage('newt')" id="bn-newt">
-    <span class="bn-icon">➕</span>Torneo
+  <button class="bn-item active" onclick="showPage('bookings')" id="bn-bookings">
+    <span class="bn-icon">📅</span>Prenotaz.
   </button>
   <button class="bn-item" onclick="showPage('matches')" id="bn-matches">
     <span class="bn-icon">🎾</span>Partite
@@ -502,6 +499,9 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="bn-item" onclick="showPage('rank')" id="bn-rank">
     <span class="bn-icon">🏆</span>Classifica
   </button>
+  <button class="bn-item" onclick="showPage('newt')" id="bn-newt">
+    <span class="bn-icon">➕</span>Torneo
+  </button>
   <button class="bn-item" onclick="toggleMobileMenu()" id="bn-more">
     <span class="bn-icon">☰</span>Altro
   </button>
@@ -509,11 +509,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE MORE MENU -->
 <div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;">
+  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
+  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">📅 Stagioni</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export Excel</button>
+  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
   <button class="tab" id="bn-users-mobile" style="text-align:left;padding:12px 8px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
 </div>
 
@@ -525,7 +525,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 </div>
 
 <!-- ════ GIOCATORI ════ -->
-<div class="page active" id="page-players">
+<div class="page" id="page-players">
   <div style="padding-top:10px;margin-bottom:18px;">
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(30px,9vw,44px);font-weight:800;letter-spacing:4px;line-height:1;">GIOCATORI</div>
     <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Anagrafica — selezionabili nei tornei</div>
@@ -823,7 +823,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 </div>
 
 <!-- ════ PRENOTAZIONI ════ -->
-<div class="page" id="page-bookings">
+<div class="page active" id="page-bookings">
   <div style="padding-top:10px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;">
     <div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">PROSSIMI<br>INCONTRI</div>
@@ -850,8 +850,12 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
           <input class="inp" type="date" id="booking-date">
         </div>
         <div>
-          <label class="lbl">Ora *</label>
+          <label class="lbl">Dalle ore *</label>
           <input class="inp" type="time" id="booking-time">
+        </div>
+        <div>
+          <label class="lbl">Alle ore</label>
+          <input class="inp" type="time" id="booking-time-end">
         </div>
       </div>
       <div>
@@ -1278,7 +1282,9 @@ function buildBookingCard(b, today){
   const cls = isPast ? 'past' : isToday ? 'today' : '';
 
   const dateLabel = isToday ? 'OGGI' : isPast ? fmtDate(b.date) : fmtDate(b.date);
-  const timeLabel = b.time ? ' · ' + b.time : '';
+  const timeLabel = b.time
+    ? (b.timeEnd ? ` · ${b.time} → ${b.timeEnd}` : ` · ${b.time}`)
+    : '';
   const countLabel = b.participants?.length
     ? `${b.participants.length} partecipant${b.participants.length===1?'e':'i'}`
     : 'Nessun partecipante';
@@ -1309,6 +1315,7 @@ function openBookingForm(id){
   document.getElementById('booking-title').value = '';
   document.getElementById('booking-date').value = '';
   document.getElementById('booking-time').value = '';
+  document.getElementById('booking-time-end').value = '';
   document.getElementById('booking-place').value = '';
   document.getElementById('booking-notes').value = '';
   document.getElementById('bookingFormTitle').textContent = 'NUOVO INCONTRO';
@@ -1325,6 +1332,7 @@ function editBooking(id){
   document.getElementById('booking-title').value   = b.title||'';
   document.getElementById('booking-date').value    = b.date||'';
   document.getElementById('booking-time').value    = b.time||'';
+  document.getElementById('booking-time-end').value = b.timeEnd||'';
   document.getElementById('booking-place').value   = b.place||'';
   document.getElementById('booking-notes').value   = b.notes||'';
   document.getElementById('bookingFormTitle').textContent = 'MODIFICA INCONTRO';
@@ -1382,6 +1390,7 @@ function saveBooking(){
     title,
     date,
     time,
+    timeEnd:      document.getElementById('booking-time-end').value,
     place:        document.getElementById('booking-place').value.trim(),
     notes:        document.getElementById('booking-notes').value.trim(),
     participants: [..._bookingParticipants],
@@ -3122,6 +3131,7 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.19</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
 </body>
 </html>
+

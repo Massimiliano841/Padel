@@ -242,6 +242,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 .btn-sm-open:hover{border-color:var(--accent)!important;color:var(--accent)!important;}
 .new-season-form{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
 
 /* tournament list */
 .tlist-item{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;transition:opacity .2s;}
@@ -418,11 +419,12 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
   /* Tornei lista */
   .tlist-actions{width:100%;justify-content:flex-end;}
+  .form-row{ grid-template-columns:1fr; }
+  .form-row-3{ grid-template-columns:1fr 1fr; }
 
   /* Stagioni */
   .season-item{flex-direction:column;align-items:flex-start;gap:8px;}
   .season-actions{width:100%;}
-  .form-row{grid-template-columns:1fr 1fr;}
 
   /* Log */
   .log-item{padding:8px 10px;}
@@ -866,11 +868,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
         <label class="lbl">Titolo *</label>
         <input class="inp" id="booking-title" placeholder="es. Torneo venerdì sera" maxlength="40">
       </div>
+      <div style="margin-bottom:0;">
+        <label class="lbl">Data *</label>
+        <input class="inp" type="date" id="booking-date">
+      </div>
       <div class="form-row">
-        <div>
-          <label class="lbl">Data *</label>
-          <input class="inp" type="date" id="booking-date">
-        </div>
         <div>
           <label class="lbl">Dalle ore *</label>
           <input class="inp" type="time" id="booking-time">
@@ -3244,6 +3246,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.0.9</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.1</div>
 </body>
 </html>

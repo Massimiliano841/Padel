@@ -1740,6 +1740,7 @@ Promise.all([
   }
 
   renderPlayers();
+  renderBookings();
   updateBadge();
 
   // Polling ogni 6 secondi per sync tra dispositivi
@@ -2072,6 +2073,12 @@ function startTournament(){
   const names = Array.from({length: ntPlayerCount}, (_,i) => document.getElementById('slot'+(i+1))?.value||'');
   if(names.some(n=>!n)){ alert('Seleziona tutti i giocatori!'); return; }
   if(new Set(names).size < ntPlayerCount){ alert('Ogni giocatore deve essere diverso!'); return; }
+
+  // Mescola i giocatori in ordine casuale prima di generare le partite
+  for(let i=names.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [names[i],names[j]]=[names[j],names[i]];
+  }
 
   const pairs = allPairs(names);
   // Genera i match base e poi li replica per ogni giro, aggiornando gli id progressivamente
@@ -3279,6 +3286,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.1</div>
 </body>
 </html>

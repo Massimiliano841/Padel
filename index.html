@@ -1710,7 +1710,7 @@ async function doRestore(input){
   input.value = '';
   if(!file) return;
   if(!currentUser?.isMaster){
-    alert('Solo l'admin può eseguire il restore.');
+    alert('Solo un admin può eseguire il restore.');
     return;
   }
   const confirmed = confirm(

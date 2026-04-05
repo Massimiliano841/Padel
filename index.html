@@ -605,13 +605,10 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <div>Il torneo viene associato alla stagione attiva. Punti: <strong>3</strong> vittoria netta · <strong>2/1</strong> vittoria di scarto 1 · <strong>1</strong> pareggio · <strong>0</strong> sconfitta netta. Numero di partite calcolato automaticamente.</div>
   </div>
 
-  <!-- Nome torneo — generato automaticamente dalla data prenotazione -->
+  <!-- Nome torneo -->
   <div style="margin-bottom:14px;">
     <label class="lbl">Nome torneo</label>
-    <div id="tournamentNameDisplay" style="background:var(--s2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--muted);">
-      — Importa una prenotazione per generare il nome —
-    </div>
-    <input type="hidden" id="tournamentName">
+    <input class="inp" id="tournamentName" placeholder="es. Torneo Venerdì 25…" maxlength="30">
   </div>
 
   <!-- Stagione attiva -->
@@ -719,7 +716,6 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <div class="pills" id="rankFilterPills">
       <button class="pill active" onclick="setRankFilter('all',this)">Tutto</button>
       <button class="pill" onclick="setRankFilter('today',this)">Oggi</button>
-      <button class="pill" onclick="setRankFilter('week',this)">Settimana</button>
       <button class="pill" onclick="setRankFilter('month',this)">Mese</button>
       <button class="pill" onclick="setRankFilter('season',this)">Stagione</button>
       <button class="pill" onclick="setRankFilter('tournament',this)">Torneo</button>
@@ -763,15 +759,13 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       <label class="lbl">Nome stagione</label>
       <input class="inp" id="sName" placeholder="es. Estate 2025" maxlength="30">
     </div>
-    <div class="form-row">
-      <div>
-        <label class="lbl">Data inizio</label>
-        <input class="inp" type="date" id="sStart">
-      </div>
-      <div>
-        <label class="lbl">Data fine</label>
-        <input class="inp" type="date" id="sEnd">
-      </div>
+    <div>
+      <label class="lbl">Data inizio</label>
+      <input class="inp" type="date" id="sStart" style="width:100%;min-width:0;">
+    </div>
+    <div>
+      <label class="lbl">Data fine</label>
+      <input class="inp" type="date" id="sEnd" style="width:100%;min-width:0;">
     </div>
     <button class="btn btn-primary btn-full" onclick="addSeason()">+ Crea stagione</button>
   </div>
@@ -904,18 +898,18 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
         <label class="lbl">Titolo *</label>
         <input class="inp" id="booking-title" placeholder="es. Torneo venerdì sera" maxlength="40">
       </div>
-      <div style="margin-bottom:0;">
+      <div>
         <label class="lbl">Data *</label>
-        <input class="inp" type="date" id="booking-date">
+        <input class="inp" type="date" id="booking-date" style="width:100%;min-width:0;">
       </div>
       <div class="form-row">
         <div>
           <label class="lbl">Dalle ore *</label>
-          <input class="inp" type="time" id="booking-time">
+          <input class="inp" type="time" id="booking-time" style="width:100%;min-width:0;">
         </div>
         <div>
           <label class="lbl">Alle ore</label>
-          <input class="inp" type="time" id="booking-time-end">
+          <input class="inp" type="time" id="booking-time-end" style="width:100%;min-width:0;">
         </div>
       </div>
       <div>
@@ -1948,38 +1942,22 @@ function previewImportBooking(){
     ${pCount>=4 ? '<span style="color:var(--accent2);margin-left:4px;">✓ abbastanza per un torneo</span>' : '<span style="color:var(--red);margin-left:4px;">⚠ servono almeno 4</span>'}`;
 }
 
-// Genera nome torneo nel formato aaaa.mm.gg NomeGiorno
-function tournamentNameFromDate(dateStr){
-  const DAYS_IT = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
-  const d = new Date(dateStr + 'T12:00:00');
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth()+1).padStart(2,'0');
-  const dd   = String(d.getDate()).padStart(2,'0');
-  return `${yyyy}.${mm}.${dd} ${DAYS_IT[d.getDay()]}`;
-}
-
-function setTournamentName(name){
-  const hidden  = document.getElementById('tournamentName');
-  const display = document.getElementById('tournamentNameDisplay');
-  if(hidden)  hidden.value = name;
-  if(display){ display.textContent = name; display.style.color = 'var(--text)'; }
-}
-
 function applyImportBooking(){
   const id = document.getElementById('import-booking-select')?.value;
   if(!id){ alert('Seleziona una prenotazione'); return; }
   const b = bookings.find(x=>x.id===id);
   if(!b) return;
 
-  // Genera e imposta nome torneo dalla data della prenotazione
-  const generatedName = tournamentNameFromDate(b.date);
-  setTournamentName(generatedName);
+  // Imposta nome torneo
+  const nameEl = document.getElementById('tournamentName');
+  if(nameEl && !nameEl.value) nameEl.value = b.title;
 
   // Imposta numero giocatori se ci sono partecipanti sufficienti
   const pCount = b.participants?.length || 0;
   if(pCount >= 4){
     ntPlayerCount = pCount;
     renderSlots();
+    // Pre-seleziona i giocatori negli slot se presenti in anagrafica
     let assigned = 0;
     b.participants.forEach((name, i)=>{
       const slot = document.getElementById('slot'+(i+1));
@@ -1990,12 +1968,12 @@ function applyImportBooking(){
     });
     onSlotChange();
     if(assigned > 0){
-      alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\n${assigned} giocatori preselezionati`);
+      alert(`✓ Importato: "${b.title}"\n${assigned} giocatori preselezionati`);
     } else {
-      alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\nI partecipanti non sono in anagrafica — selezionali manualmente.`);
+      alert(`✓ Nome torneo importato.\nI partecipanti non sono presenti in anagrafica — selezionali manualmente.`);
     }
   } else {
-    alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\n${pCount} partecipanti — seleziona i giocatori manualmente.`);
+    alert(`✓ Nome torneo importato.\nLa prenotazione ha ${pCount} partecipanti — seleziona i giocatori manualmente.`);
   }
 
   // Chiudi pannello
@@ -2086,12 +2064,8 @@ function onSlotChange(){
 }
 
 function startTournament(){
-  // Se non è stato importato un nome dalla prenotazione, genera con la data odierna
-  let tName = document.getElementById('tournamentName').value.trim();
-  if(!tName){
-    tName = tournamentNameFromDate(new Date().toISOString().slice(0,10));
-    setTournamentName(tName);
-  }
+  const tName = document.getElementById('tournamentName').value.trim();
+  if(!tName){ alert('Dai un nome al torneo!'); return; }
 
   const names = Array.from({length: ntPlayerCount}, (_,i) => document.getElementById('slot'+(i+1))?.value||'');
   if(names.some(n=>!n)){ alert('Seleziona tutti i giocatori!'); return; }
@@ -2129,10 +2103,7 @@ function startTournament(){
   save('tournaments', tournaments);
   curTournament = tournaments.length-1;
   openMatchId = null; tempScores={};
-  // Reset nome torneo display
-  setTournamentName('');
-  const display = document.getElementById('tournamentNameDisplay');
-  if(display){ display.textContent = '— Importa una prenotazione per generare il nome —'; display.style.color = 'var(--muted)'; }
+  document.getElementById('tournamentName').value='';
   ntRounds = 1; // reset giri
   updateBadge();
   showPage('matches');

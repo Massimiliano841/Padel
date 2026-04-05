@@ -605,10 +605,13 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <div>Il torneo viene associato alla stagione attiva. Punti: <strong>3</strong> vittoria netta · <strong>2/1</strong> vittoria di scarto 1 · <strong>1</strong> pareggio · <strong>0</strong> sconfitta netta. Numero di partite calcolato automaticamente.</div>
   </div>
 
-  <!-- Nome torneo -->
+  <!-- Nome torneo — generato automaticamente dalla data prenotazione -->
   <div style="margin-bottom:14px;">
     <label class="lbl">Nome torneo</label>
-    <input class="inp" id="tournamentName" placeholder="es. Torneo Venerdì 25…" maxlength="30">
+    <div id="tournamentNameDisplay" style="background:var(--s2);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--muted);">
+      — Importa una prenotazione per generare il nome —
+    </div>
+    <input type="hidden" id="tournamentName">
   </div>
 
   <!-- Stagione attiva -->
@@ -877,31 +880,6 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <!-- Anteprima e bottone -->
   <div id="exportPreview" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);min-height:40px;"></div>
   <button class="btn btn-primary btn-full" style="font-size:18px;" onclick="doExport()">⬇ Scarica Excel</button>
-
-  <!-- ── BACKUP & RESTORE ── -->
-  <div style="margin-top:32px;">
-    <div class="sec-title">Backup & Restore</div>
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;">
-      <div style="font-size:12px;color:var(--muted);line-height:1.5;">
-        Salva una copia completa di tutti i dati del database (tornei, partite, giocatori, log, prenotazioni, utenti) in un file <b>.json</b>. Puoi usarlo per ripristinare tutto in caso di perdita di dati.
-      </div>
-      <button class="btn btn-primary btn-full" onclick="doBackup()" id="backupBtn">
-        💾 Scarica Backup JSON
-      </button>
-      <div style="border-top:1px solid var(--border);padding-top:12px;">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-          <b style="color:var(--red);">⚠ Attenzione:</b> il restore <b>sovrascrive tutti i dati esistenti</b> con quelli del file selezionato. Usare solo in caso di emergenza.
-        </div>
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <input type="file" id="restoreFile" accept=".json" style="display:none;" onchange="doRestore(this)">
-          <button class="btn btn-full" style="background:var(--red);color:#fff;border:none;" onclick="document.getElementById('restoreFile').click()">
-            🔄 Ripristina da Backup
-          </button>
-        </label>
-      </div>
-      <div id="backupStatus" style="font-size:12px;color:var(--muted);display:none;padding:8px 10px;background:var(--s2);border-radius:8px;"></div>
-    </div>
-  </div>
 </div>
 
 <!-- ════ PRENOTAZIONI ════ -->
@@ -1657,91 +1635,6 @@ function doExport(){
   addLog('auth', `Export Excel scaricato: ${ms.length} partite`);
 }
 
-// ═══════════════════════════════════
-//  BACKUP & RESTORE
-// ═══════════════════════════════════
-async function doBackup(){
-  const btn = document.getElementById('backupBtn');
-  const status = document.getElementById('backupStatus');
-  btn.disabled = true;
-  btn.textContent = '⏳ Download in corso...';
-  status.style.display = 'none';
-  try {
-    // Scarica tutte le chiavi dalla tabella data
-    const r = await fetch(`${SB_URL}/rest/v1/data?select=key,value`, { headers: SB_HDR });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const rows = await r.json();
-    const backup = {
-      version: '1.0',
-      date: new Date().toISOString(),
-      app: 'Padel Pro',
-      rows: rows
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const dateStr = new Date().toISOString().slice(0,10);
-    a.href = url;
-    a.download = `padelpro_backup_${dateStr}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    status.style.display = 'block';
-    status.style.color = 'var(--accent2)';
-    status.textContent = `✅ Backup completato: ${rows.length} chiavi salvate (${dateStr})`;
-    addLog('auth', `Backup JSON scaricato: ${rows.length} chiavi`);
-  } catch(e) {
-    status.style.display = 'block';
-    status.style.color = 'var(--red)';
-    status.textContent = `❌ Errore durante il backup: ${e.message}`;
-  }
-  btn.disabled = false;
-  btn.textContent = '💾 Scarica Backup JSON';
-}
-
-async function doRestore(input){
-  const status = document.getElementById('backupStatus');
-  const file = input.files[0];
-  input.value = '';
-  if(!file) return;
-  if(!currentUser?.isMaster){
-    alert('Solo l\'admin può eseguire il restore.');
-    return;
-  }
-  const confirmed = confirm(
-    '⚠️ ATTENZIONE\n\nStai per sovrascrivere TUTTI i dati del database con quelli del file selezionato.\n\nQuesta operazione è irreversibile.\n\nContinuare?'
-  );
-  if(!confirmed) return;
-  status.style.display = 'block';
-  status.style.color = 'var(--muted)';
-  status.textContent = '⏳ Lettura file...';
-  try {
-    const text = await file.text();
-    const backup = JSON.parse(text);
-    if(!backup.rows || !Array.isArray(backup.rows)) throw new Error('File non valido o corrotto');
-    const rows = backup.rows;
-    status.textContent = `⏳ Ripristino di ${rows.length} chiavi in corso...`;
-    let ok = 0, fail = 0;
-    for(const row of rows){
-      try {
-        await fetch(`${SB_URL}/rest/v1/data`, {
-          method: 'POST',
-          headers: { ...SB_HDR, 'Prefer': 'resolution=merge-duplicates' },
-          body: JSON.stringify({ key: row.key, value: row.value })
-        });
-        ok++;
-      } catch(e){ fail++; }
-    }
-    addLog('auth', `Restore JSON eseguito: ${ok} chiavi ripristinate`);
-    status.style.color = fail === 0 ? 'var(--accent2)' : 'var(--gold)';
-    status.textContent = `✅ Restore completato: ${ok} chiavi ripristinate${fail>0 ? `, ${fail} errori` : ''}. Ricarico l'app...`;
-    setTimeout(() => location.reload(), 2000);
-  } catch(e){
-    status.style.display = 'block';
-    status.style.color = 'var(--red)';
-    status.textContent = `❌ Errore durante il restore: ${e.message}`;
-  }
-}
-
 function setStatus(s){
   const icon = { connecting:'🔄', online:'🟢', offline:'🔴' }[s]||'🔴';
   const el = document.getElementById('fb-status');
@@ -2055,22 +1948,38 @@ function previewImportBooking(){
     ${pCount>=4 ? '<span style="color:var(--accent2);margin-left:4px;">✓ abbastanza per un torneo</span>' : '<span style="color:var(--red);margin-left:4px;">⚠ servono almeno 4</span>'}`;
 }
 
+// Genera nome torneo nel formato aaaa.mm.gg NomeGiorno
+function tournamentNameFromDate(dateStr){
+  const DAYS_IT = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+  const d = new Date(dateStr + 'T12:00:00');
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth()+1).padStart(2,'0');
+  const dd   = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}.${mm}.${dd} ${DAYS_IT[d.getDay()]}`;
+}
+
+function setTournamentName(name){
+  const hidden  = document.getElementById('tournamentName');
+  const display = document.getElementById('tournamentNameDisplay');
+  if(hidden)  hidden.value = name;
+  if(display){ display.textContent = name; display.style.color = 'var(--text)'; }
+}
+
 function applyImportBooking(){
   const id = document.getElementById('import-booking-select')?.value;
   if(!id){ alert('Seleziona una prenotazione'); return; }
   const b = bookings.find(x=>x.id===id);
   if(!b) return;
 
-  // Imposta nome torneo
-  const nameEl = document.getElementById('tournamentName');
-  if(nameEl && !nameEl.value) nameEl.value = b.title;
+  // Genera e imposta nome torneo dalla data della prenotazione
+  const generatedName = tournamentNameFromDate(b.date);
+  setTournamentName(generatedName);
 
   // Imposta numero giocatori se ci sono partecipanti sufficienti
   const pCount = b.participants?.length || 0;
   if(pCount >= 4){
     ntPlayerCount = pCount;
     renderSlots();
-    // Pre-seleziona i giocatori negli slot se presenti in anagrafica
     let assigned = 0;
     b.participants.forEach((name, i)=>{
       const slot = document.getElementById('slot'+(i+1));
@@ -2081,12 +1990,12 @@ function applyImportBooking(){
     });
     onSlotChange();
     if(assigned > 0){
-      alert(`✓ Importato: "${b.title}"\n${assigned} giocatori preselezionati`);
+      alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\n${assigned} giocatori preselezionati`);
     } else {
-      alert(`✓ Nome torneo importato.\nI partecipanti non sono presenti in anagrafica — selezionali manualmente.`);
+      alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\nI partecipanti non sono in anagrafica — selezionali manualmente.`);
     }
   } else {
-    alert(`✓ Nome torneo importato.\nLa prenotazione ha ${pCount} partecipanti — seleziona i giocatori manualmente.`);
+    alert(`✓ Importato: "${b.title}"\nNome torneo: ${generatedName}\n${pCount} partecipanti — seleziona i giocatori manualmente.`);
   }
 
   // Chiudi pannello
@@ -2177,8 +2086,12 @@ function onSlotChange(){
 }
 
 function startTournament(){
-  const tName = document.getElementById('tournamentName').value.trim();
-  if(!tName){ alert('Dai un nome al torneo!'); return; }
+  // Se non è stato importato un nome dalla prenotazione, genera con la data odierna
+  let tName = document.getElementById('tournamentName').value.trim();
+  if(!tName){
+    tName = tournamentNameFromDate(new Date().toISOString().slice(0,10));
+    setTournamentName(tName);
+  }
 
   const names = Array.from({length: ntPlayerCount}, (_,i) => document.getElementById('slot'+(i+1))?.value||'');
   if(names.some(n=>!n)){ alert('Seleziona tutti i giocatori!'); return; }
@@ -2216,7 +2129,10 @@ function startTournament(){
   save('tournaments', tournaments);
   curTournament = tournaments.length-1;
   openMatchId = null; tempScores={};
-  document.getElementById('tournamentName').value='';
+  // Reset nome torneo display
+  setTournamentName('');
+  const display = document.getElementById('tournamentNameDisplay');
+  if(display){ display.textContent = '— Importa una prenotazione per generare il nome —'; display.style.color = 'var(--muted)'; }
   ntRounds = 1; // reset giri
   updateBadge();
   showPage('matches');
@@ -3396,6 +3312,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.2</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.3</div>
 </body>
 </html>

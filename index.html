@@ -884,6 +884,31 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <!-- Anteprima e bottone -->
   <div id="exportPreview" style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);min-height:40px;"></div>
   <button class="btn btn-primary btn-full" style="font-size:18px;" onclick="doExport()">⬇ Scarica Excel</button>
+
+  <!-- ── BACKUP & RESTORE ── -->
+  <div style="margin-top:32px;">
+    <div class="sec-title">Backup & Restore</div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <div style="font-size:12px;color:var(--muted);line-height:1.5;">
+        Salva una copia completa di tutti i dati del database (tornei, partite, giocatori, log, prenotazioni, utenti) in un file <b>.json</b>. Puoi usarlo per ripristinare tutto in caso di perdita di dati.
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doBackup()" id="backupBtn">
+        💾 Scarica Backup JSON
+      </button>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+          <b style="color:var(--red);">⚠ Attenzione:</b> il restore <b>sovrascrive tutti i dati esistenti</b> con quelli del file selezionato. Usare solo in caso di emergenza.
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="file" id="restoreFile" accept=".json" style="display:none;" onchange="doRestore(this)">
+          <button class="btn btn-full" style="background:var(--red);color:#fff;border:none;" onclick="document.getElementById('restoreFile').click()">
+            🔄 Ripristina da Backup
+          </button>
+        </label>
+      </div>
+      <div id="backupStatus" style="font-size:12px;color:var(--muted);display:none;padding:8px 10px;background:var(--s2);border-radius:8px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ════ PRENOTAZIONI ════ -->
@@ -1637,6 +1662,90 @@ function doExport(){
   const fileName = `padelpro_export_${dateStr}.xlsx`;
   XLSX.writeFile(wb, fileName);
   addLog('auth', `Export Excel scaricato: ${ms.length} partite`);
+}
+
+// ═══════════════════════════════════
+//  BACKUP & RESTORE
+// ═══════════════════════════════════
+async function doBackup(){
+  const btn = document.getElementById('backupBtn');
+  const status = document.getElementById('backupStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Download in corso...';
+  status.style.display = 'none';
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/data?select=key,value`, { headers: SB_HDR });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const rows = await r.json();
+    const backup = {
+      version: '1.0',
+      date: new Date().toISOString(),
+      app: 'Padel Pro',
+      rows: rows
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `padelpro_backup_${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    status.style.display = 'block';
+    status.style.color = 'var(--accent2)';
+    status.textContent = `✅ Backup completato: ${rows.length} chiavi salvate (${dateStr})`;
+    addLog('auth', `Backup JSON scaricato: ${rows.length} chiavi`);
+  } catch(e) {
+    status.style.display = 'block';
+    status.style.color = 'var(--red)';
+    status.textContent = `❌ Errore durante il backup: ${e.message}`;
+  }
+  btn.disabled = false;
+  btn.textContent = '💾 Scarica Backup JSON';
+}
+
+async function doRestore(input){
+  const status = document.getElementById('backupStatus');
+  const file = input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(!currentUser?.isMaster){
+    alert('Solo l'admin può eseguire il restore.');
+    return;
+  }
+  const confirmed = confirm(
+    '⚠️ ATTENZIONE\n\nStai per sovrascrivere TUTTI i dati del database con quelli del file selezionato.\n\nQuesta operazione è irreversibile.\n\nContinuare?'
+  );
+  if(!confirmed) return;
+  status.style.display = 'block';
+  status.style.color = 'var(--muted)';
+  status.textContent = '⏳ Lettura file...';
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if(!backup.rows || !Array.isArray(backup.rows)) throw new Error('File non valido o corrotto');
+    const rows = backup.rows;
+    status.textContent = `⏳ Ripristino di ${rows.length} chiavi in corso...`;
+    let ok = 0, fail = 0;
+    for(const row of rows){
+      try {
+        await fetch(`${SB_URL}/rest/v1/data`, {
+          method: 'POST',
+          headers: { ...SB_HDR, 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify({ key: row.key, value: row.value })
+        });
+        ok++;
+      } catch(e){ fail++; }
+    }
+    addLog('auth', `Restore JSON eseguito: ${ok} chiavi ripristinate`);
+    status.style.color = fail === 0 ? 'var(--accent2)' : 'var(--gold)';
+    status.textContent = `✅ Restore completato: ${ok} chiavi ripristinate${fail>0 ? `, ${fail} errori` : ''}. Ricarico l'app...`;
+    setTimeout(() => location.reload(), 2000);
+  } catch(e){
+    status.style.display = 'block';
+    status.style.color = 'var(--red)';
+    status.textContent = `❌ Errore durante il restore: ${e.message}`;
+  }
 }
 
 function setStatus(s){

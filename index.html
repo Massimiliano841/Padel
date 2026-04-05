@@ -2178,9 +2178,11 @@ function renderMatches(){
   const subEl   = document.getElementById('matchPageSub');
   if(t){
     if(titleEl) titleEl.textContent = t.name || 'PARTITE';
-    const done=t.matches.filter(m=>m.done).length;
+    const total = t.matches.length;
+    // Se chiuso mostra sempre tutte le partite come completate nel contatore
+    const done = t.closed ? total : t.matches.filter(m=>m.done).length;
     if(subEl){
-      subEl.textContent = `${t.players.length} giocatori · ${done}/${t.matches.length} partite`;
+      subEl.textContent = `${t.players.length} giocatori · ${done}/${total} partite`;
       if(t.closed) subEl.textContent += ' · 🔒 CHIUSO';
     }
   } else {
@@ -2527,11 +2529,12 @@ function addExtraMatch(){
 }
 
 function updateBadge(){
-  const t=getMatches();
   const el=document.getElementById('badge-matches');
-  if(!t){ if(el) el.textContent='—'; syncMobileBadge(); return; }
-  const pending=t.matches.filter(m=>!m.done).length;
-  if(el) el.textContent=pending||'✓';
+  // Conta solo le partite pendenti nei tornei NON chiusi
+  const pending = tournaments
+    .filter(t=>!t.closed)
+    .reduce((sum,t)=>sum + t.matches.filter(m=>!m.done).length, 0);
+  if(el) el.textContent = pending || (tournaments.length ? '✓' : '—');
   syncMobileBadge();
 }
 

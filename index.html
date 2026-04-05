@@ -462,6 +462,16 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   /* Login box */
   .login-box{padding:22px 18px;}
   .login-title{font-size:28px;}
+
+  /* Prenotazioni — campi data e ora a tutta larghezza su mobile */
+  input[type="date"].inp,
+  input[type="time"].inp {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+  }
 }
 </style>
 </head>
@@ -761,11 +771,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     </div>
     <div>
       <label class="lbl">Data inizio</label>
-      <input class="inp" type="date" id="sStart" style="width:100%;min-width:0;">
+      <input class="inp" type="date" id="sStart">
     </div>
     <div>
       <label class="lbl">Data fine</label>
-      <input class="inp" type="date" id="sEnd" style="width:100%;min-width:0;">
+      <input class="inp" type="date" id="sEnd">
     </div>
     <button class="btn btn-primary btn-full" onclick="addSeason()">+ Crea stagione</button>
   </div>
@@ -900,16 +910,16 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       </div>
       <div>
         <label class="lbl">Data *</label>
-        <input class="inp" type="date" id="booking-date" style="width:100%;min-width:0;">
+        <input class="inp" type="date" id="booking-date">
       </div>
       <div class="form-row">
         <div>
           <label class="lbl">Dalle ore *</label>
-          <input class="inp" type="time" id="booking-time" style="width:100%;min-width:0;">
+          <input class="inp" type="time" id="booking-time">
         </div>
         <div>
           <label class="lbl">Alle ore</label>
-          <input class="inp" type="time" id="booking-time-end" style="width:100%;min-width:0;">
+          <input class="inp" type="time" id="booking-time-end">
         </div>
       </div>
       <div>

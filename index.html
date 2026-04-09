@@ -608,7 +608,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <!-- Nome torneo -->
   <div style="margin-bottom:14px;">
     <label class="lbl">Nome torneo</label>
-    <input class="inp" id="tournamentName" placeholder="es. Torneo Venerdì 25…" maxlength="30">
+    <input class="inp" id="tournamentName" placeholder="Lascia vuoto per usare la data (es. 2026.04.09 Giovedì)" maxlength="40">
   </div>
 
   <!-- Stagione attiva -->
@@ -928,7 +928,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       </div>
       <div style="margin-bottom:0;">
         <label class="lbl">Data *</label>
-        <input class="inp" type="date" id="booking-date">
+        <input class="inp" type="date" id="booking-date" onchange="onBookingDateChange(this.value)">
       </div>
       <div class="form-row">
         <div>
@@ -1394,8 +1394,12 @@ function buildBookingCard(b, today){
 function openBookingForm(id){
   _bookingParticipants = [];
   document.getElementById('booking-edit-id').value = '';
-  document.getElementById('booking-title').value = '';
-  document.getElementById('booking-date').value = '';
+  // Pre-compila data odierna e titolo automatico
+  const today = new Date();
+  const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
+  const todayStr = `${y}-${m}-${d}`;
+  document.getElementById('booking-date').value = todayStr;
+  document.getElementById('booking-title').value = dateTitleFromDate(today);
   document.getElementById('booking-time').value = '';
   document.getElementById('booking-time-end').value = '';
   document.getElementById('booking-place').value = '';
@@ -1405,6 +1409,17 @@ function openBookingForm(id){
   renderBookingChips();
   document.getElementById('bookingForm').style.display = 'block';
   document.getElementById('bookingForm').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function onBookingDateChange(val){
+  if(!val) return;
+  const titleEl = document.getElementById('booking-title');
+  // Aggiorna il titolo solo se è ancora nel formato automatico o vuoto
+  const cur = titleEl.value.trim();
+  const autoPattern = /^\d{4}\.\d{2}\.\d{2} /;
+  if(!cur || autoPattern.test(cur)){
+    titleEl.value = dateTitleFromDate(val);
+  }
 }
 
 function editBooking(id){
@@ -1464,6 +1479,8 @@ function saveBooking(){
   const date  = document.getElementById('booking-date').value;
   const time  = document.getElementById('booking-time').value;
   if(!title){ alert('Inserisci un titolo'); return; }
+  const titlePattern = /^\d{4}\.\d{2}\.\d{2} \S/;
+  if(!titlePattern.test(title)){ alert('Il titolo deve essere nel formato aaaa.mm.dd Giorno\n(es. 2026.04.14 Martedì)'); return; }
   if(!date) { alert('Inserisci una data');  return; }
 
   const editId = document.getElementById('booking-edit-id').value;
@@ -2177,8 +2194,8 @@ function onSlotChange(){
 }
 
 function startTournament(){
-  const tName = document.getElementById('tournamentName').value.trim();
-  if(!tName){ alert('Dai un nome al torneo!'); return; }
+  let tName = document.getElementById('tournamentName').value.trim();
+  if(!tName) tName = dateTitleFromDate(new Date());
 
   const names = Array.from({length: ntPlayerCount}, (_,i) => document.getElementById('slot'+(i+1))?.value||'');
   if(names.some(n=>!n)){ alert('Seleziona tutti i giocatori!'); return; }
@@ -2633,6 +2650,7 @@ function updateBadge(){
   const t=getMatches();
   const el=document.getElementById('badge-matches');
   if(!t){ if(el) el.textContent='—'; syncMobileBadge(); return; }
+  if(t.closed){ if(el) el.textContent='✓'; syncMobileBadge(); return; }
   const pending=t.matches.filter(m=>!m.done).length;
   if(el) el.textContent=pending||'✓';
   syncMobileBadge();
@@ -3371,6 +3389,16 @@ document.getElementById('modalConfirmBtn').onclick=()=>{ if(pendingDeleteFn) pen
 // ═══════════════════════════════════
 function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 function fmtDate(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+// Genera titolo nel formato "aaaa.mm.dd Giorno" da una data (Date o stringa yyyy-mm-dd)
+function dateTitleFromDate(d){
+  if(!d) d = new Date();
+  else if(typeof d === 'string') { const [y,m,dd]=d.split('-'); d=new Date(Number(y),Number(m)-1,Number(dd)); }
+  const giorni=['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  return `${y}.${m}.${dd} ${giorni[d.getDay()]}`;
+}
 function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
 function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
 const MONTHS=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
@@ -3396,6 +3424,7 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.2</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.3</div>
 </body>
 </html>
+

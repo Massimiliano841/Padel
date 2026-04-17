@@ -493,6 +493,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab" onclick="showPage('players')" id="tab-players">Giocatori</button>
   <button class="tab" onclick="showPage('tlist')" id="tab-tlist">Tornei</button>
   <button class="tab" onclick="showPage('export')" id="tab-export">📊 Export</button>
+  <button class="tab" onclick="showPage('elo')" id="tab-elo">⚡ ELO</button>
   <button class="tab" onclick="showPage('log')" id="tab-log">Log</button>
   <button class="tab" onclick="showPage('users')" id="tab-users" style="display:none;">👤 Utenti</button>
   <div style="margin-left:auto;padding:0 6px;display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -548,6 +549,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export Excel</button>
+  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
   <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
   <button class="tab" id="bn-users-mobile" style="text-align:left;padding:12px 8px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
 </div>
@@ -816,6 +818,44 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       <input class="inp" id="new-user-pass" type="password" placeholder="Minimo 4 caratteri">
     </div>
     <button class="btn btn-primary btn-full" onclick="adminCreateUser()">+ Crea account</button>
+  </div>
+</div>
+
+<!-- ════ ELO ════ -->
+<div class="page" id="page-elo">
+  <div style="padding-top:10px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;">
+    <div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;">ELO</div>
+      <div style="color:var(--muted);font-size:12px;letter-spacing:1px;margin-top:4px;">Rating individuale pesato per qualità della vittoria</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <select class="inp" id="eloSeasonFilter" onchange="renderElo()" style="font-size:12px;padding:6px 10px;max-width:160px;">
+        <option value="all">Tutti i tornei</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Classifica ELO -->
+  <div class="sec-title">Classifica</div>
+  <div id="eloRankList" style="margin-bottom:24px;"></div>
+
+  <!-- Dettaglio giocatore -->
+  <div id="eloDetail" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div id="eloDetailName" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;"></div>
+      <button class="btn-sm" onclick="closeEloDetail()">✕</button>
+    </div>
+    <div id="eloDetailStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+    <div class="sec-title" style="margin-bottom:8px;">Ultimi 10 match</div>
+    <div id="eloDetailHistory" style="font-size:12px;"></div>
+  </div>
+
+  <!-- Info formula -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:11px;color:var(--muted);line-height:1.7;">
+    <b style="color:var(--text);">Come funziona il calcolo ELO</b><br>
+    ELO iniziale: <b>1200</b> · K=32 primi 30 match, K=20 dopo<br>
+    Peso vittoria: 4-0 → 1.00 · 4-1 → 0.90 · 4-2 → 0.80 · 4-3 → 0.65 · Pareggio → 0.50<br>
+    Rating team = media ELO coppia · Δ = K × (S_effettivo − S_atteso)
   </div>
 </div>
 
@@ -1880,6 +1920,221 @@ function importLegacyTsv(){
 }
 
 // ═══════════════════════════════════
+//  ELO ENGINE
+// ═══════════════════════════════════
+
+const ELO_START   = 1200;
+const ELO_K_HIGH  = 32;   // primi 30 match
+const ELO_K_LOW   = 20;   // dopo 30 match
+const ELO_K_THRES = 30;
+
+// S effettivo basato sullo scarto dei game
+function eloS(sa, sb){
+  if(sa === sb) return 0.5;
+  const diff = Math.abs(sa - sb);
+  const win = sa > sb;
+  let s;
+  if(diff >= 4) s = 1.00;       // 4-0
+  else if(diff === 3) s = 0.90; // 4-1
+  else if(diff === 2) s = 0.80; // 4-2
+  else s = 0.65;                // 4-3 (scarto 1)
+  return win ? s : 1 - s;
+}
+
+// Calcola K in base alle partite già giocate
+function eloK(played){
+  return played < ELO_K_THRES ? ELO_K_HIGH : ELO_K_LOW;
+}
+
+// S atteso dato il proprio ELO e quello avversario
+function eloExpected(myElo, oppElo){
+  return 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
+}
+
+// Ricalcola tutti gli ELO in ordine cronologico
+// Restituisce: { ratings: {nome: elo}, history: [{name,elo,delta,match,date}], played: {nome: n} }
+function computeElo(filterSeasonId){
+  const ratings = {};
+  const played  = {};
+  const history = {}; // nome → [{elo, delta, opponent, result, date, tName}]
+
+  // Raccogli tutti i match done in ordine cronologico
+  const allDone = [];
+  tournaments.forEach(t => {
+    if(filterSeasonId && filterSeasonId !== 'all' && t.seasonId !== filterSeasonId) return;
+    t.matches.forEach(m => {
+      if(!m.done) return;
+      allDone.push({ m, t });
+    });
+  });
+
+  // Ordina per data torneo + id match (proxy dell'ordine cronologico)
+  allDone.sort((a, b) => {
+    const da = a.t.date || '';
+    const db = b.t.date || '';
+    if(da !== db) return da.localeCompare(db);
+    return a.m.id - b.m.id;
+  });
+
+  for(const { m, t } of allDone){
+    const p = [m.a.p1, m.a.p2, m.b.p1, m.b.p2];
+    // Inizializza giocatori nuovi
+    p.forEach(name => {
+      if(ratings[name] === undefined){ ratings[name] = ELO_START; played[name] = 0; history[name] = []; }
+    });
+
+    const eloA1 = ratings[m.a.p1], eloA2 = ratings[m.a.p2];
+    const eloB1 = ratings[m.b.p1], eloB2 = ratings[m.b.p2];
+    const avgA  = (eloA1 + eloA2) / 2;
+    const avgB  = (eloB1 + eloB2) / 2;
+
+    const sA = eloS(m.sa, m.sb);   // S effettivo team A
+    const sB = 1 - sA;
+    const eA = eloExpected(avgA, avgB);
+    const eB = 1 - eA;
+
+    // Aggiorna ogni giocatore
+    [[m.a.p1, sA, eA], [m.a.p2, sA, eA], [m.b.p1, sB, eB], [m.b.p2, sB, eB]].forEach(([name, s, e]) => {
+      const k     = eloK(played[name]);
+      const delta = Math.round(k * (s - e) * 10) / 10;
+      const prev  = ratings[name];
+      ratings[name] = Math.round((prev + delta) * 10) / 10;
+      played[name]++;
+      history[name].push({
+        elo:   ratings[name],
+        delta,
+        sa:    m.sa,
+        sb:    m.sb,
+        teammates: name === m.a.p1 ? [m.a.p2] : name === m.a.p2 ? [m.a.p1] : name === m.b.p1 ? [m.b.p2] : [m.b.p1],
+        opponents: (name === m.a.p1 || name === m.a.p2) ? [m.b.p1, m.b.p2] : [m.a.p1, m.a.p2],
+        won:   (name === m.a.p1 || name === m.a.p2) ? m.sa > m.sb : m.sb > m.sa,
+        draw:  m.sa === m.sb,
+        tName: t.name,
+        date:  t.date
+      });
+    });
+  }
+
+  return { ratings, played, history };
+}
+
+function renderElo(){
+  // Popola filtro stagione
+  const sel = document.getElementById('eloSeasonFilter');
+  if(sel){
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">Tutti i tornei</option>' +
+      seasons.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    if(cur) sel.value = cur;
+  }
+
+  const filterSeason = document.getElementById('eloSeasonFilter')?.value || 'all';
+  const { ratings, played, history } = computeElo(filterSeason);
+
+  if(!Object.keys(ratings).length){
+    document.getElementById('eloRankList').innerHTML =
+      '<div class="empty-state">Nessuna partita completata nel periodo selezionato.</div>';
+    return;
+  }
+
+  // Ordina per ELO desc
+  const ranked = Object.entries(ratings)
+    .map(([name, elo]) => ({ name, elo, played: played[name] || 0, history: history[name] || [] }))
+    .sort((a, b) => b.elo - a.elo);
+
+  // Calcola trend: delta ELO nell'ultima sessione (ultimo torneo)
+  const lastTName = ranked[0]?.history.slice(-1)[0]?.tName;
+
+  const html = ranked.map((r, i) => {
+    const trend = r.history.filter(h => h.tName === lastTName).reduce((s, h) => s + h.delta, 0);
+    const trendHtml = trend > 0
+      ? `<span style="color:var(--green);font-size:11px;font-weight:700;">▲${trend.toFixed(1)}</span>`
+      : trend < 0
+        ? `<span style="color:var(--red);font-size:11px;font-weight:700;">▼${Math.abs(trend).toFixed(1)}</span>`
+        : `<span style="color:var(--muted);font-size:11px;">—</span>`;
+
+    // Forma ultimi 5
+    const last5 = r.history.slice(-5).reverse();
+    const formaHtml = last5.map(h =>
+      h.draw ? `<span style="color:var(--muted);font-size:13px;" title="Pareggio">◼</span>`
+      : h.won ? `<span style="color:var(--green);font-size:13px;" title="+${h.delta}">●</span>`
+              : `<span style="color:var(--red);font-size:13px;" title="${h.delta}">●</span>`
+    ).join('');
+
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:6px;cursor:pointer;" onclick="openEloDetail('${r.name}')">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:28px;color:var(--muted);">${medal||('#'+(i+1))}</div>
+      <div style="flex:1;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.5px;">${r.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${r.played} match</div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;">${formaHtml}</div>
+      <div style="text-align:right;min-width:60px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--accent);">${r.elo.toFixed(0)}</div>
+        <div>${trendHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('eloRankList').innerHTML = html;
+  document.getElementById('eloDetail').style.display = 'none';
+}
+
+function openEloDetail(name){
+  const filterSeason = document.getElementById('eloSeasonFilter')?.value || 'all';
+  const { ratings, played, history } = computeElo(filterSeason);
+  const h = history[name] || [];
+  const elo = ratings[name] || ELO_START;
+  const wins  = h.filter(x=>x.won).length;
+  const draws = h.filter(x=>x.draw).length;
+  const losses= h.filter(x=>!x.won&&!x.draw).length;
+  const maxElo= h.length ? Math.max(...h.map(x=>x.elo)) : elo;
+  const minElo= h.length ? Math.min(...h.map(x=>x.elo)) : elo;
+
+  document.getElementById('eloDetailName').textContent = name;
+
+  const stats = [
+    { label:'ELO attuale', val: elo.toFixed(0), color:'var(--accent)' },
+    { label:'Max ELO',     val: maxElo.toFixed(0), color:'var(--accent2)' },
+    { label:'V/P/S',       val: `${wins}/${draws}/${losses}`, color:'var(--text)' },
+    { label:'Match',       val: played[name]||0, color:'var(--muted)' },
+  ];
+  document.getElementById('eloDetailStats').innerHTML = stats.map(s =>
+    `<div style="background:var(--s2);border-radius:10px;padding:10px;text-align:center;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${s.color};">${s.val}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">${s.label}</div>
+    </div>`
+  ).join('');
+
+  // Ultimi 10 match in ordine inverso
+  const last10 = h.slice(-10).reverse();
+  document.getElementById('eloDetailHistory').innerHTML = last10.length
+    ? last10.map(e => {
+        const sign = e.delta >= 0 ? '+' : '';
+        const col  = e.draw ? 'var(--muted)' : e.won ? 'var(--green)' : 'var(--red)';
+        const res  = e.draw ? 'Pari' : e.won ? 'Vinta' : 'Persa';
+        const score= `${e.sa}-${e.sb}`;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+          <span style="color:${col};font-weight:700;width:38px;font-size:12px;">${res}</span>
+          <span style="color:var(--muted);width:30px;font-size:12px;">${score}</span>
+          <span style="flex:1;font-size:11px;color:var(--muted);">${e.tName||''} · con ${e.teammates.join('/')} vs ${e.opponents.join('/')}</span>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${col};">${sign}${e.delta}</span>
+          <span style="font-size:11px;color:var(--muted);width:36px;text-align:right;">${e.elo.toFixed(0)}</span>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:12px;">Nessun match registrato.</div>';
+
+  const detail = document.getElementById('eloDetail');
+  detail.style.display = 'block';
+  detail.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function closeEloDetail(){
+  document.getElementById('eloDetail').style.display = 'none';
+}
+
+// ═══════════════════════════════════
 //  BACKUP & RESTORE
 // ═══════════════════════════════════
 async function doBackup(){
@@ -2039,6 +2294,7 @@ function showPage(name){
   if(name==='users')    renderUserList();
   if(name==='export')   renderExportPage();
   if(name==='bookings') renderBookings();
+  if(name==='elo')      renderElo();
 }
 
 // ═══════════════════════════════════
@@ -3726,6 +3982,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.8</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.9</div>
 </body>
 </html>

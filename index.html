@@ -892,12 +892,29 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   </div>
 
   <!-- Info formula -->
-  <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:11px;color:var(--muted);line-height:1.7;">
-    <b style="color:var(--text);">Come funziona il calcolo ELO</b><br>
-    ELO iniziale: <b>1200</b> · K=32 primi 30 match, K=20 dopo<br>
-    Peso vittoria: 4-0 → 1.00 · 4-1 → 0.90 · 4-2 → 0.80 · 4-3 → 0.65 · Pareggio → 0.50<br>
-    Rating team = media ELO coppia · Δ = K × (S_effettivo − S_atteso)<br>
-    <b style="color:var(--text);">Correzione compagno:</b> ogni 200pt ELO di differenza tra compagni = ±10% sul delta. Il più forte perde di più in sconfitta e guadagna di meno in vittoria.
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.9;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;color:var(--text);margin-bottom:8px;">Come funziona l'ELO</div>
+
+    <b style="color:var(--text);">📌 Rating di partenza</b><br>
+    Ogni giocatore inizia a <b>1200</b>. Sale vincendo, scende perdendo. Chi è sopra 1200 è sopra la media del gruppo.<br><br>
+
+    <b style="color:var(--text);">⚙️ Il calcolo base</b><br>
+    Il sistema confronta il <b>rating medio delle due coppie</b>. Se la tua coppia vale 1300 e l'avversaria 1100, ti aspetti di vincere — quindi vinci pochi punti e ne perdi tanti se perdi.<br>
+    Formula: <b>Δ = K × (Risultato_effettivo − Risultato_atteso)</b><br>
+    K = 32 nei primi 30 match (apprendimento veloce), poi K = 20.<br><br>
+
+    <b style="color:var(--text);">🎯 Peso del punteggio</b><br>
+    Non basta vincere — conta <i>quanto</i> vinci:<br>
+    4-0 = 1.00 · 4-1 = 0.90 · 4-2 = 0.80 · 4-3 = 0.65 · Pareggio = 0.50<br><br>
+
+    <b style="color:var(--text);">🤝 Correzione compagno</b><br>
+    Se giochi con un compagno molto più forte o debole di te, il delta viene aggiustato:<br>
+    — Sei il più <b>forte</b>: guadagni <b>meno</b> in vittoria (era atteso), perdi <b>di più</b> in sconfitta (eri il trascinatore)<br>
+    — Sei il più <b>debole</b>: guadagni <b>di più</b> in vittoria (hai sovraperformato), perdi <b>meno</b> in sconfitta (eri il trainato)<br>
+    Ogni 200 punti di differenza ELO tra compagni = ±10% sul delta.<br><br>
+
+    <b style="color:var(--text);">⚡ Sorpresa / Come previsto / Incerto</b><br>
+    ✓ = vince il favorito (prob. &gt;55%) · ⚡ = vince lo sfavorito (&lt;45%) · ~ = partita equilibrata
   </div>
 </div>
 
@@ -2571,6 +2588,7 @@ Promise.all([
   renderPlayers();
   renderBookings();
   updateBadge();
+  recomputeSeasonIds(false); // allinea stagioni ex-post ai tornei già caricati
 
   // Polling ogni 6 secondi per sync tra dispositivi
   setInterval(()=>{
@@ -3887,10 +3905,42 @@ function renderTournamentDetail(){
     .map(s=>({...s, avg: s.played>0 ? +(s.pts/s.played).toFixed(2) : 0}))
     .sort((a,b)=> b.avg-a.avg || b.pts-a.pts);
   const medals=['🥇','🥈','🥉'];
+
+  // Calcola delta ELO totale per questo torneo per ogni giocatore
+  const eloSnapForRank = computeEloSnapshot(t.id);
+  const eloEndForRank  = {...eloSnapForRank};
+  const playedForRank  = {};
+  t.players.forEach(p=>{ playedForRank[p] = eloSnapForRank[p] !== undefined ? 999 : 0; });
+  function pwRank(my,mate,dBase){ const adj=(my-mate)/200*0.1; return dBase>=0?1-adj:1+adj; }
+  t.matches.filter(m=>m.done).forEach(m=>{
+    const e1=eloEndForRank[m.a.p1]??ELO_START, e2=eloEndForRank[m.a.p2]??ELO_START;
+    const e3=eloEndForRank[m.b.p1]??ELO_START, e4=eloEndForRank[m.b.p2]??ELO_START;
+    const avgA=(e1+e2)/2, avgB=(e3+e4)/2;
+    const sA=eloS(m.sa,m.sb), sB=1-sA;
+    const eA=1/(1+Math.pow(10,(avgB-avgA)/400)), eB=1-eA;
+    [[m.a.p1,e1,e2,sA,eA],[m.a.p2,e2,e1,sA,eA],
+     [m.b.p1,e3,e4,sB,eB],[m.b.p2,e4,e3,sB,eB]].forEach(([n,myE,mateE,s,e])=>{
+      const dBase=eloK(playedForRank[n]??0)*(s-e);
+      const delta=Math.round(dBase*pwRank(myE,mateE,dBase)*10)/10;
+      eloEndForRank[n]=Math.round(((eloEndForRank[n]??ELO_START)+delta)*10)/10;
+      playedForRank[n]=(playedForRank[n]??0)+1;
+    });
+  });
+  // Delta totale = ELO fine - ELO inizio
+  function eloDeltaHtml(name){
+    const start = eloSnapForRank[name] ?? ELO_START;
+    const end   = eloEndForRank[name]  ?? ELO_START;
+    const d = Math.round((end - start) * 10) / 10;
+    if(d === 0) return `<span style="color:var(--muted);">—</span>`;
+    const col = d > 0 ? 'var(--green)' : 'var(--red)';
+    const sign = d > 0 ? '+' : '';
+    return `<span style="color:${col};font-weight:700;">${sign}${d}</span>`;
+  }
+
   document.getElementById('tdetail-rank').innerHTML = `
     <div class="tlist-mini-rank">
       <table>
-        <thead><tr><th>#</th><th style="text-align:left;">Giocatore</th><th>Avg</th><th>PT</th><th>PG</th><th style="color:var(--accent2)">PV</th><th style="color:var(--red)">PP</th></tr></thead>
+        <thead><tr><th>#</th><th style="text-align:left;">Giocatore</th><th>Avg</th><th>PT</th><th>PG</th><th style="color:var(--accent2)">PV</th><th style="color:var(--red)">PP</th><th title="Movimento ELO nel torneo">⚡</th></tr></thead>
         <tbody>${sorted.map((s,i)=>`<tr>
           <td>${i<3?medals[i]:(i+1)}</td>
           <td style="text-align:left;font-weight:700;">${s.name}</td>
@@ -3898,6 +3948,7 @@ function renderTournamentDetail(){
           <td>${s.pts}</td><td>${s.played}</td>
           <td style="color:var(--accent2)">${s.w}</td>
           <td style="color:var(--red)">${s.l}</td>
+          <td>${eloDeltaHtml(s.name)}</td>
         </tr>`).join('')}</tbody>
       </table>
     </div>`;
@@ -4359,6 +4410,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.5</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.6</div>
 </body>
 </html>

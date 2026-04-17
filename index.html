@@ -779,6 +779,23 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div id="tlistContainer"></div>
 </div>
 
+<!-- ════ DETTAGLIO TORNEO ════ -->
+<div class="page" id="page-tdetail">
+  <div style="padding-top:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+    <div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(22px,6vw,34px);font-weight:800;letter-spacing:3px;line-height:1;" id="tdetail-title">TORNEO</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px;" id="tdetail-meta"></div>
+    </div>
+    <button class="btn-sm" style="margin-top:6px;flex-shrink:0;" onclick="showPage('tlist')">← Tornei</button>
+  </div>
+  <!-- Classifica -->
+  <div class="sec-title" style="margin-top:14px;">Classifica</div>
+  <div id="tdetail-rank" style="margin-bottom:18px;"></div>
+  <!-- Partite + ELO -->
+  <div class="sec-title">Partite & Previsioni ELO</div>
+  <div id="tdetail-matches"></div>
+</div>
+
 <!-- ════ STAGIONI ════ -->
 <div class="page" id="page-seasons">
   <div style="padding-top:10px;margin-bottom:18px;">
@@ -2454,7 +2471,7 @@ function syncMobileBadge(){
 const PAGE_LABELS = {
   home:'Home', bookings:'📅 Prenotazioni', matches:'🎾 Partite', rank:'🏆 Classifica',
   newt:'➕ Nuovo Torneo', seasons:'🗓 Stagioni', players:'👤 Giocatori',
-  tlist:'📋 Tornei', export:'📊 Export', elo:'⚡ ELO', log:'📜 Log', users:'👑 Utenti'
+  tlist:'📋 Tornei', tdetail:'📋 Dettaglio Torneo', export:'📊 Export', elo:'⚡ ELO', log:'📜 Log', users:'👑 Utenti'
 };
 
 function showPage(name){
@@ -2494,6 +2511,7 @@ function showPage(name){
   if(name==='export')   renderExportPage();
   if(name==='bookings') renderBookings();
   if(name==='elo')      renderElo();
+  if(name==='tdetail')  renderTournamentDetail();
 
   // Inietta breadcrumb ← Home in cima alla pagina (solo su mobile, dove la nav è nascosta)
   if(name !== 'home'){
@@ -3732,8 +3750,8 @@ function renderTlist(){
     const pct   = total ? Math.round(done/total*100) : 0;
     const season= seasons.find(s=>s.id===t.seasonId);
     return `<div class="tlist-item ${t.closed?'closed':''}" style="flex-direction:column;align-items:stretch;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;" onclick="toggleTlistDetail('${t.id}')">
-        <div class="tlist-info">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div class="tlist-info" style="cursor:pointer;flex:1;" onclick="openTournamentDetail('${t.id}')">
           <div class="tlist-name">${t.name||'Torneo senza nome'}</div>
           <div class="tlist-meta">
             <span>${fmtDate(t.date)}</span>
@@ -3742,51 +3760,53 @@ function renderTlist(){
             ${season?`<span>📅 ${season.name}</span>`:''}
           </div>
         </div>
-        <div class="tlist-actions" onclick="event.stopPropagation()">
+        <div class="tlist-actions" style="flex-shrink:0;">
+          <button class="btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="openTournamentDetail('${t.id}')">📋 Dettagli</button>
           <span class="tlist-badge ${t.closed?'closed':'open'}">${t.closed?'CHIUSO':'APERTO'}</span>
           ${t.closed
             ? `<button class="btn-sm btn-sm-open" onclick="toggleCloseTournament('${t.id}')">Riapri</button>`
             : `<button class="btn-sm" style="border-color:var(--gold);color:var(--gold);" onclick="toggleCloseTournament('${t.id}')">Chiudi</button>`}
           <button class="btn-sm" onclick="deleteTournament('${t.id}')">✕</button>
-          <span id="tlist-arrow-${t.id}" style="font-size:12px;color:var(--muted);">▼</span>
         </div>
       </div>
-      <div class="tlist-detail" id="tlist-detail-${t.id}"></div>
     </div>`;
   }).join('');
 }
 
-let _tlistOpenId = null;
-
-function toggleTlistDetail(id){
-  const panel = document.getElementById('tlist-detail-'+id);
-  const arrow = document.getElementById('tlist-arrow-'+id);
-  if(!panel) return;
-  const isOpen = panel.classList.contains('open');
-  // Chiudi tutti
-  document.querySelectorAll('.tlist-detail.open').forEach(p=>p.classList.remove('open'));
-  document.querySelectorAll('[id^="tlist-arrow-"]').forEach(a=>a.textContent='▼');
-  if(!isOpen){
-    panel.classList.add('open');
-    if(arrow) arrow.textContent='▲';
-    if(!panel.innerHTML.trim()) panel.innerHTML = buildTlistDetail(id);
-  }
+function openTournamentDetail(id){
+  _currentTDetailId = id;
+  showPage('tdetail');
 }
 
-function buildTlistDetail(id){
-  const t = tournaments.find(x=>x.id===id);
-  if(!t) return '';
+let _currentTDetailId = null;
 
-  // ── Classifica breve ──
+function renderTournamentDetail(){
+  const id = _currentTDetailId;
+  const t = id ? tournaments.find(x=>x.id===id) : null;
+  if(!t){
+    document.getElementById('tdetail-title').textContent = 'TORNEO';
+    document.getElementById('tdetail-meta').textContent  = '';
+    document.getElementById('tdetail-rank').innerHTML    = '';
+    document.getElementById('tdetail-matches').innerHTML = '';
+    return;
+  }
+
+  const done  = t.matches.filter(m=>m.done).length;
+  const total = t.matches.length;
+  const season= seasons.find(s=>s.id===t.seasonId);
+  document.getElementById('tdetail-title').textContent = t.name||'TORNEO';
+  document.getElementById('tdetail-meta').textContent =
+    `${fmtDate(t.date)} · ${t.players.length} giocatori · ${done}/${total} partite${season?' · '+season.name:''}`;
+
+  // ── Classifica ──
   const stats={};
   function ep(n){ if(!stats[n]) stats[n]={name:n,pts:0,w:0,l:0,d:0,played:0}; }
   t.matches.filter(m=>m.done).forEach(m=>{
     [m.a.p1,m.a.p2,m.b.p1,m.b.p2].forEach(ep);
     const sa=m.sa,sb=m.sb,diff=Math.abs(sa-sb);
     const tA=[m.a.p1,m.a.p2],tB=[m.b.p1,m.b.p2];
-    if(sa===sb){
-      [...tA,...tB].forEach(n=>{stats[n].pts++;stats[n].d++;stats[n].played++;});
-    } else if(sa>sb){
+    if(sa===sb){ [...tA,...tB].forEach(n=>{stats[n].pts++;stats[n].d++;stats[n].played++;}); }
+    else if(sa>sb){
       const wp=diff===1?2:3,lp=diff===1?1:0;
       tA.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;});
       tB.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;});
@@ -3796,133 +3816,127 @@ function buildTlistDetail(id){
       tA.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;});
     }
   });
-  // Aggiungi giocatori senza partite
   t.players.forEach(ep);
   const sorted = Object.values(stats)
-    .map(s=>({...s, avg: s.played>0 ? +(s.pts/s.played).toFixed(2) : '—'}))
-    .sort((a,b)=>(typeof b.avg==='number'&&typeof a.avg==='number') ? b.avg-a.avg || b.pts-a.pts : 0);
+    .map(s=>({...s, avg: s.played>0 ? +(s.pts/s.played).toFixed(2) : 0}))
+    .sort((a,b)=> b.avg-a.avg || b.pts-a.pts);
   const medals=['🥇','🥈','🥉'];
-  const rankRows = sorted.map((s,i)=>`
-    <tr>
-      <td>${i<3?medals[i]:(i+1)}</td>
-      <td style="text-align:left;font-weight:700;">${s.name}</td>
-      <td>${typeof s.avg==='number'?s.avg.toFixed(2):s.avg}</td>
-      <td>${s.pts}</td>
-      <td>${s.played}</td>
-      <td style="color:var(--accent2)">${s.w}</td>
-      <td style="color:var(--red)">${s.l}</td>
-    </tr>`).join('');
-
-  // ── Lista partite ──
-  const matchRows = t.matches.map(m=>{
-    const diff = m.done ? Math.abs(m.sa-m.sb) : null;
-    const ptLabel = m.done
-      ? (m.sa===m.sb ? '1–1' : diff===1 ? (m.sa>m.sb?'2–1':'1–2') : (m.sa>m.sb?'3–0':'0–3'))
-      : null;
-    const giroLabel = t.rounds>1 && m.giro ? `<span style="font-size:10px;color:var(--muted);"> G${m.giro}</span>` : '';
-    const extraLabel = m.label ? `<span style="font-size:10px;color:var(--accent);"> ${m.label}</span>` : '';
-    return `<div class="tlist-match-row ${!m.done?'':''}">
-      <div class="tlist-match-team">
-        <span style="font-weight:600;">${m.a.p1}</span>
-        <span style="color:var(--muted);">${m.a.p2}</span>
-      </div>
-      <div style="text-align:center;">
-        ${m.done
-          ? `<div class="tlist-match-score">${m.sa} : ${m.sb}</div>
-             <div style="font-size:10px;color:var(--muted);">${ptLabel}${giroLabel}${extraLabel}</div>`
-          : `<div class="tlist-match-score pending">VS${giroLabel}${extraLabel}</div>`}
-      </div>
-      <div class="tlist-match-team right">
-        <span style="font-weight:600;">${m.b.p1}</span>
-        <span style="color:var(--muted);">${m.b.p2}</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  const doneCount = t.matches.filter(m=>m.done).length;
-
-  // ── Previsione ELO ──
-  // Calcola ELO snapshot PRIMA di questo torneo (escludendolo)
-  const eloSnap = computeEloSnapshot(t.id);
-  const DEFAULT_ELO = 1200;
-
-  function getElo(name){ return eloSnap[name] ?? DEFAULT_ELO; }
-  function teamElo(p1, p2){ return (getElo(p1) + getElo(p2)) / 2; }
-  function expWin(eloA, eloB){ return 1 / (1 + Math.pow(10, (eloB - eloA) / 400)); }
-  function eloBadge(pct){
-    if(pct >= 0.65) return `<span style="color:var(--accent2);font-weight:700;">${Math.round(pct*100)}%</span>`;
-    if(pct >= 0.50) return `<span style="color:var(--muted);">${Math.round(pct*100)}%</span>`;
-    return `<span style="color:var(--red);">${Math.round(pct*100)}%</span>`;
-  }
-
-  const predRows = t.matches.map(m => {
-    const eloA = teamElo(m.a.p1, m.a.p2);
-    const eloB = teamElo(m.b.p1, m.b.p2);
-    const pA = expWin(eloA, eloB);
-    const pB = 1 - pA;
-
-    let resultHtml = '';
-    if(m.done){
-      const wonA = m.sa > m.sb, wonB = m.sb > m.sa, draw = m.sa === m.sb;
-      const upset = (wonA && pA < 0.45) || (wonB && pB < 0.45);
-      const asExpected = (wonA && pA >= 0.55) || (wonB && pB >= 0.55);
-      const icon = draw ? '◼' : upset ? '⚡' : asExpected ? '✓' : '~';
-      const col = draw ? 'var(--muted)' : upset ? 'var(--accent2)' : asExpected ? 'var(--green)' : 'var(--muted)';
-      resultHtml = `<span style="color:${col};font-weight:700;font-size:13px;" title="${upset?'Sorpresa!':asExpected?'Come previsto':'Esito incerto'}">${icon}</span>
-        <span style="font-size:11px;color:var(--muted);">${m.sa}-${m.sb}</span>`;
-    } else {
-      resultHtml = `<span style="font-size:10px;color:var(--muted);">da giocare</span>`;
-    }
-
-    return `<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;">
-      <div style="text-align:right;">
-        <span style="font-weight:600;">${m.a.p1}</span><span style="color:var(--muted);"> & </span><span style="font-weight:600;">${m.a.p2}</span>
-        <div>${eloBadge(pA)}</div>
-      </div>
-      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 6px;">
-        ${resultHtml}
-      </div>
-      <div style="text-align:left;">
-        <span style="font-weight:600;">${m.b.p1}</span><span style="color:var(--muted);"> & </span><span style="font-weight:600;">${m.b.p2}</span>
-        <div>${eloBadge(pB)}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // Conta sorprese e risultati attesi
-  const doneMatches = t.matches.filter(m=>m.done);
-  let upsets = 0, asExpected = 0;
-  doneMatches.forEach(m=>{
-    const pA = expWin(teamElo(m.a.p1,m.a.p2), teamElo(m.b.p1,m.b.p2));
-    const wonA = m.sa > m.sb, wonB = m.sb > m.sa;
-    if((wonA && pA < 0.45)||(wonB && (1-pA) < 0.45)) upsets++;
-    else if((wonA && pA >= 0.55)||(wonB && (1-pA) >= 0.55)) asExpected++;
-  });
-  const summaryHtml = doneMatches.length
-    ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
-        ✓ Come previsto: <b>${asExpected}</b> &nbsp;·&nbsp;
-        ⚡ Sorprese: <b style="color:var(--accent2);">${upsets}</b> &nbsp;·&nbsp;
-        ~ Incerti: <b>${doneMatches.length - upsets - asExpected}</b>
-      </div>`
-    : '';
-
-  return `
+  document.getElementById('tdetail-rank').innerHTML = `
     <div class="tlist-mini-rank">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Classifica</div>
       <table>
         <thead><tr><th>#</th><th style="text-align:left;">Giocatore</th><th>Avg</th><th>PT</th><th>PG</th><th style="color:var(--accent2)">PV</th><th style="color:var(--red)">PP</th></tr></thead>
-        <tbody>${rankRows}</tbody>
+        <tbody>${sorted.map((s,i)=>`<tr>
+          <td>${i<3?medals[i]:(i+1)}</td>
+          <td style="text-align:left;font-weight:700;">${s.name}</td>
+          <td>${s.played>0?s.avg.toFixed(2):'—'}</td>
+          <td>${s.pts}</td><td>${s.played}</td>
+          <td style="color:var(--accent2)">${s.w}</td>
+          <td style="color:var(--red)">${s.l}</td>
+        </tr>`).join('')}</tbody>
       </table>
-    </div>
-    <div style="margin-bottom:12px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">⚡ Previsioni ELO</div>
-      ${summaryHtml}
-      ${predRows}
-    </div>
-    <div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Partite (${doneCount}/${t.matches.length})</div>
-      ${matchRows}
     </div>`;
+
+  // ── ELO snapshot prima di questo torneo ──
+  const eloSnap = computeEloSnapshot(t.id);
+  // ELO progressivo DURANTE questo torneo (partita per partita)
+  const eloLive = {...eloSnap};
+  const playedLive = {};
+  t.players.forEach(p=>{ playedLive[p] = Object.keys(eloSnap).includes(p) ? 999 : 0; });
+
+  function getE(n){ return eloLive[n] ?? ELO_START; }
+  function teamE(p1,p2){ return (getE(p1)+getE(p2))/2; }
+  function expW(eA,eB){ return 1/(1+Math.pow(10,(eB-eA)/400)); }
+  const PF=0.4;
+  function pw(my,mate){ return 1-(my/(my+mate))*PF+PF/2; }
+
+  // Conta sorprese per summary
+  let upsets=0, asExp=0;
+  t.matches.filter(m=>m.done).forEach(m=>{
+    const pA=expW(teamE(m.a.p1,m.a.p2),teamE(m.b.p1,m.b.p2));
+    const wonA=m.sa>m.sb, wonB=m.sb>m.sa;
+    if((wonA&&pA<0.45)||(wonB&&(1-pA)<0.45)) upsets++;
+    else if((wonA&&pA>=0.55)||(wonB&&(1-pA)>=0.55)) asExp++;
+  });
+  const doneM = t.matches.filter(m=>m.done).length;
+
+  const matchesHtml = t.matches.map((m, idx)=>{
+    const e1=getE(m.a.p1), e2=getE(m.a.p2), e3=getE(m.b.p1), e4=getE(m.b.p2);
+    const avgA=teamE(m.a.p1,m.a.p2), avgB=teamE(m.b.p1,m.b.p2);
+    const pA=expW(avgA,avgB), pB=1-pA;
+
+    // Calcola delta ELO per questo match se done
+    let deltaMap={};
+    let resultIcon='', resultIconCol='var(--muted)';
+    if(m.done){
+      const sA=eloS(m.sa,m.sb), sB=1-sA, eA=pA, eB=pB;
+      [[m.a.p1,e1,sA,eA,pw(e1,e2)],[m.a.p2,e2,sA,eA,pw(e2,e1)],
+       [m.b.p1,e3,sB,eB,pw(e3,e4)],[m.b.p2,e4,sB,eB,pw(e4,e3)]].forEach(([n,elo,s,e,w])=>{
+        const k=eloK(playedLive[n]??0);
+        const delta=Math.round(k*(s-e)*w*10)/10;
+        deltaMap[n]=delta;
+        eloLive[n]=Math.round(((eloLive[n]??ELO_START)+delta)*10)/10;
+        playedLive[n]=(playedLive[n]??0)+1;
+      });
+      const wonA=m.sa>m.sb, wonB=m.sb>m.sa;
+      const upset=(wonA&&pA<0.45)||(wonB&&pB<0.45);
+      const asExpected=(wonA&&pA>=0.55)||(wonB&&pB>=0.55);
+      resultIcon = upset?'⚡':asExpected?'✓':'~';
+      resultIconCol = upset?'var(--accent2)':asExpected?'var(--green)':'var(--muted)';
+    }
+
+    function pctBadge(p){ const col=p>=0.6?'var(--accent2)':p>=0.5?'var(--muted)':'var(--red)'; return `<span style="color:${col};font-size:10px;font-weight:700;">${Math.round(p*100)}%</span>`; }
+    function deltaHtml(name){
+      if(deltaMap[name]===undefined) return '';
+      const d=deltaMap[name], col=d>0?'var(--green)':d<0?'var(--red)':'var(--muted)';
+      const sign=d>=0?'+':'';
+      return `<span style="color:${col};font-size:10px;font-weight:700;">${sign}${d}</span>`;
+    }
+    function eloAfter(name){
+      if(!m.done) return `<span style="font-size:10px;color:var(--muted);">${Math.round(getE(name))}</span>`;
+      return `<span style="font-size:10px;color:var(--muted);">${Math.round(eloLive[name]??ELO_START)}</span>`;
+    }
+
+    const giroLabel = t.rounds>1&&m.giro ? `<span style="font-size:10px;color:var(--muted);">G${m.giro}</span>` : '';
+    const scoreHtml = m.done
+      ? `<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;">${m.sa} : ${m.sb}</div>
+         <div style="color:${resultIconCol};font-size:13px;font-weight:700;">${resultIcon}</div>`
+      : `<div style="font-size:12px;color:var(--muted);">VS</div>`;
+
+    return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;${!m.done?'opacity:.7':''}">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;">
+        <!-- Team A -->
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${[m.a.p1,m.a.p2].map(p=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
+              <span style="font-weight:700;font-size:13px;">${p}</span>
+              <div style="display:flex;align-items:center;gap:3px;">${deltaHtml(p)} ${eloAfter(p)}</div>
+            </div>`).join('')}
+          <div style="margin-top:2px;">${pctBadge(pA)}</div>
+        </div>
+        <!-- Score -->
+        <div style="text-align:center;min-width:60px;">
+          ${giroLabel}
+          ${scoreHtml}
+        </div>
+        <!-- Team B -->
+        <div style="display:flex;flex-direction:column;gap:4px;text-align:right;">
+          ${[m.b.p1,m.b.p2].map(p=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;flex-direction:row-reverse;">
+              <span style="font-weight:700;font-size:13px;">${p}</span>
+              <div style="display:flex;align-items:center;gap:3px;">${eloAfter(p)} ${deltaHtml(p)}</div>
+            </div>`).join('')}
+          <div style="margin-top:2px;text-align:right;">${pctBadge(pB)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const summaryHtml = doneM
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:var(--s2);border-radius:8px;">
+        ✓ Come previsto: <b>${asExp}</b> &nbsp;·&nbsp; ⚡ Sorprese: <b style="color:var(--accent2);">${upsets}</b> &nbsp;·&nbsp; ~ Incerti: <b>${doneM-upsets-asExp}</b>
+      </div>` : '';
+
+  document.getElementById('tdetail-matches').innerHTML = summaryHtml + matchesHtml;
 }
 
 function toggleCloseTournament(id){
@@ -4278,6 +4292,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.1</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.2</div>
 </body>
 </html>

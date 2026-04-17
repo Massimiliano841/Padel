@@ -384,6 +384,16 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
    BOTTOM NAV — solo mobile
 ════════════════════════════════ */
 .bottom-nav{display:none;}
+.bn-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;gap:3px;cursor:pointer;border:none;background:none;
+  color:var(--muted);font-family:'Barlow Condensed',sans-serif;
+  font-size:9px;letter-spacing:1px;font-weight:700;text-transform:uppercase;
+  transition:color .2s;padding:8px 2px;position:relative;
+}
+.bn-item .bn-icon{font-size:20px;line-height:1;}
+.bn-item.active{color:var(--accent);font-weight:800;}
+.bn-item .badge{position:absolute;top:6px;right:calc(50% - 16px);font-size:9px;min-width:15px;height:15px;}
 
 @media(max-width:600px){
 
@@ -403,18 +413,6 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     justify-content:space-around;
     align-items:stretch;
   }
-
-  .bn-item{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    flex:1;gap:3px;cursor:pointer;border:none;background:none;
-    color:var(--muted);font-family:'Barlow Condensed',sans-serif;
-    font-size:9px;letter-spacing:1px;font-weight:700;text-transform:uppercase;
-    transition:color .2s;padding:8px 2px;
-    position:relative;
-  }
-  .bn-item .bn-icon{font-size:20px;line-height:1;}
-  .bn-item.active{color:var(--accent);font-weight:800;}
-  .bn-item .badge{position:absolute;top:6px;right:calc(50% - 16px);font-size:9px;min-width:15px;height:15px;}
 
   /* Header mobile con logo + stato + user */
   .mobile-header{
@@ -567,15 +565,15 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE MORE MENU -->
 <div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;">
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('home');closeMobileMenu();" id="bn-home-menu">🏠 Home</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export</button>
-  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
-  <button class="bn-item" id="bn-users-mobile" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('home');closeMobileMenu();" id="bn-home-menu">🏠 Home</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export</button>
+  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
+  <button class="bn-item" id="bn-users-mobile" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
 </div>
 
 <!-- LOADING OVERLAY -->
@@ -1227,6 +1225,7 @@ let tempScores     = {};
 let rankFilter     = 'all';
 let rankSeasonId   = '';
 let matchFilter    = 'all';
+let matchMeta      = {};  // ELO data per partita — popolato da renderMatches
 let pendingDeleteFn = null;
 
 // ═══════════════════════════════════
@@ -3122,7 +3121,7 @@ function renderMatches(){
   const playedLiveM = {};
   t.players.forEach(p=>{ playedLiveM[p] = eloSnap[p] !== undefined ? 999 : 0; });
   // Pre-calcola previsioni e delta per TUTTE le partite in ordine
-  const matchMeta = {};  // mid → {pA, pB, deltaMap, resultIcon, resultIconCol}
+  matchMeta = {};  // mid → {pA, pB, deltaMap, resultIcon, resultIconCol}
   // Correzione compagno: ogni 200pt ELO di differenza = ±10%
   function pwm(my,mate,dBase){ const adj=(my-mate)/200*0.1; return dBase>=0 ? 1-adj : 1+adj; }
   t.matches.forEach(m=>{
@@ -4589,6 +4588,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.7</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.8</div>
 </body>
 </html>

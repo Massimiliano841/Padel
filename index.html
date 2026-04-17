@@ -567,13 +567,15 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE MORE MENU -->
 <div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;">
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export Excel</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
-  <button class="tab" style="text-align:left;padding:12px 8px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
-  <button class="tab" id="bn-users-mobile" style="text-align:left;padding:12px 8px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('home');closeMobileMenu();" id="bn-home-menu">🏠 Home</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export</button>
+  <button class="bn-item" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
+  <button class="bn-item" id="bn-users-mobile" style="width:100%;justify-content:flex-start;padding:12px 8px;border-radius:10px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
 </div>
 
 <!-- LOADING OVERLAY -->
@@ -3089,6 +3091,40 @@ function renderMatches(){
     return true;
   });
 
+  // ── ELO snapshot prima del torneo + stato progressivo ──
+  const eloSnap   = computeEloSnapshot(t.id);
+  const eloLiveM  = {...eloSnap};    // aggiornato partita per partita
+  const playedLiveM = {};
+  t.players.forEach(p=>{ playedLiveM[p] = eloSnap[p] !== undefined ? 999 : 0; });
+  // Pre-calcola previsioni e delta per TUTTE le partite in ordine
+  const matchMeta = {};  // mid → {pA, pB, deltaMap, resultIcon, resultIconCol}
+  const PFm = 0.4;
+  function pwm(my,mate){ return 1-(my/(my+mate))*PFm+PFm/2; }
+  t.matches.forEach(m=>{
+    const mid = String(m.id);
+    const e1=eloLiveM[m.a.p1]??ELO_START, e2=eloLiveM[m.a.p2]??ELO_START;
+    const e3=eloLiveM[m.b.p1]??ELO_START, e4=eloLiveM[m.b.p2]??ELO_START;
+    const avgA=(e1+e2)/2, avgB=(e3+e4)/2;
+    const pA=1/(1+Math.pow(10,(avgB-avgA)/400)), pB=1-pA;
+    let deltaMap={}, resultIcon='', resultIconCol='var(--muted)';
+    if(m.done){
+      const sA=eloS(m.sa,m.sb), sB=1-sA;
+      [[m.a.p1,e1,sA,pA,pwm(e1,e2)],[m.a.p2,e2,sA,pA,pwm(e2,e1)],
+       [m.b.p1,e3,sB,pB,pwm(e3,e4)],[m.b.p2,e4,sB,pB,pwm(e4,e3)]].forEach(([n,elo,s,e,w])=>{
+        const k=eloK(playedLiveM[n]??0);
+        const delta=Math.round(k*(s-e)*w*10)/10;
+        deltaMap[n]=delta;
+        eloLiveM[n]=Math.round(((eloLiveM[n]??ELO_START)+delta)*10)/10;
+        playedLiveM[n]=(playedLiveM[n]??0)+1;
+      });
+      const wonA=m.sa>m.sb, wonB=m.sb>m.sa;
+      if((wonA&&pA<0.45)||(wonB&&pB<0.45)){ resultIcon='⚡'; resultIconCol='var(--accent2)'; }
+      else if((wonA&&pA>=0.55)||(wonB&&pB>=0.55)){ resultIcon='✓'; resultIconCol='var(--green)'; }
+      else { resultIcon='~'; resultIconCol='var(--muted)'; }
+    }
+    matchMeta[mid]={pA, pB, deltaMap, resultIcon, resultIconCol};
+  });
+
   // Raggruppa per giro se il torneo ha più giri
   const hasRounds = (t.rounds||1) > 1;
   let lastGiro = null;
@@ -3135,6 +3171,39 @@ function renderMatches(){
         </div>
       </div>
       ${byeHtml}
+      ${(()=>{
+        const meta = matchMeta[mid];
+        if(!meta) return '';
+        const pA=meta.pA, pB=meta.pB;
+        function pctCol(p){ return p>=0.6?'var(--accent2)':p>=0.5?'var(--muted)':'var(--red)'; }
+        if(m.done){
+          // Partita giocata: % prevista + icona risultato + delta ELO per ciascuno
+          const dA1=meta.deltaMap[m.a.p1], dA2=meta.deltaMap[m.a.p2];
+          const dB1=meta.deltaMap[m.b.p1], dB2=meta.deltaMap[m.b.p2];
+          function dHtml(d){ if(d===undefined) return ''; const s=d>=0?'+':'',c=d>0?'var(--green)':d<0?'var(--red)':'var(--muted)'; return `<span style="color:${c};font-size:10px;font-weight:700;">${s}${d}</span>`; }
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 2px;font-size:11px;border-top:1px solid var(--border);margin-top:6px;gap:4px;">
+            <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+              <div style="display:flex;gap:3px;align-items:center;">${dHtml(dA1)}<span style="color:var(--muted);font-size:10px;">${m.a.p1}</span></div>
+              <div style="display:flex;gap:3px;align-items:center;">${dHtml(dA2)}<span style="color:var(--muted);font-size:10px;">${m.a.p2}</span></div>
+            </div>
+            <div style="text-align:center;flex-shrink:0;">
+              <div style="font-size:16px;color:${meta.resultIconCol};">${meta.resultIcon}</div>
+              <div style="font-size:10px;color:var(--muted);">${Math.round(pA*100)}%–${Math.round(pB*100)}%</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:1px;align-items:flex-end;min-width:0;">
+              <div style="display:flex;gap:3px;align-items:center;"><span style="color:var(--muted);font-size:10px;">${m.b.p1}</span>${dHtml(dB1)}</div>
+              <div style="display:flex;gap:3px;align-items:center;"><span style="color:var(--muted);font-size:10px;">${m.b.p2}</span>${dHtml(dB2)}</div>
+            </div>
+          </div>`;
+        } else {
+          // Partita da giocare: solo % prevista
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 2px;border-top:1px solid var(--border);margin-top:6px;">
+            <span style="color:${pctCol(pA)};font-size:11px;font-weight:700;">${Math.round(pA*100)}% vittoria</span>
+            <span style="font-size:10px;color:var(--muted);">⚡ ELO</span>
+            <span style="color:${pctCol(pB)};font-size:11px;font-weight:700;">${Math.round(pB*100)}% vittoria</span>
+          </div>`;
+        }
+      })()}
       <div class="score-panel ${isOpen?'open':''}" id="panel-${mid}" onclick="event.stopPropagation()">
         <div class="score-teams-label">
           <span>${m.a.p1} &amp; ${m.a.p2}</span>
@@ -4292,6 +4361,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.2</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.3</div>
 </body>
 </html>

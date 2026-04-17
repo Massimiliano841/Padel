@@ -1414,22 +1414,6 @@ function buildBookingCard(b, today){
     `<span class="booking-chip" title="Iscritto ${idx+1}°">${idx+1}. ${p}</span>`
   ).join('');
 
-  // Pulsante iscrizione per utente loggato su prenotazioni non passate
-  let joinBtn = '';
-  if(currentUser && !isPast){
-    const username = currentUser.username;
-    const isJoined = participants.includes(username);
-    if(isJoined){
-      joinBtn = `<button class="btn-sm" style="border-color:var(--red);color:var(--red);" onclick="leaveBooking('${b.id}')">✕ Cancella iscrizione</button>`;
-    } else if(!isFull){
-      joinBtn = `<button class="btn-sm" style="border-color:var(--accent2);color:var(--accent2);" onclick="joinBooking('${b.id}')">✓ Iscriviti</button>`;
-    } else {
-      joinBtn = `<span style="font-size:11px;color:var(--red);font-weight:600;">🔒 COMPLETO</span>`;
-    }
-  }
-
-  const isAdmin = currentUser?.isMaster;
-
   return `<div class="booking-card ${cls}">
     <div class="booking-date-big">${dateLabel}${timeLabel}</div>
     <div class="booking-title">${b.title}</div>
@@ -1440,9 +1424,8 @@ function buildBookingCard(b, today){
     </div>
     ${chips ? `<div class="booking-participants">${chips}</div>` : ''}
     <div class="booking-actions">
-      ${joinBtn}
-      ${isAdmin ? `<button class="btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="editBooking('${b.id}')">✏ Modifica</button>` : ''}
-      ${isAdmin ? `<button class="btn-sm" onclick="deleteBooking('${b.id}')">✕ Elimina</button>` : ''}
+      <button class="btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="editBooking('${b.id}')">✏ Modifica</button>
+      <button class="btn-sm" onclick="deleteBooking('${b.id}')">✕ Elimina</button>
     </div>
   </div>`;
 }
@@ -1512,6 +1495,12 @@ function populateBookingPlayerSelect(){
 
 function addBookingParticipant(sel){
   const name = sel.value; if(!name) return;
+  const maxVal = parseInt(document.getElementById('booking-max')?.value)||0;
+  if(maxVal > 0 && _bookingParticipants.length >= maxVal){
+    alert(`Posti esauriti — massimo ${maxVal} partecipanti.`);
+    sel.value = '';
+    return;
+  }
   if(!_bookingParticipants.includes(name)) _bookingParticipants.push(name);
   sel.value = '';
   populateBookingPlayerSelect();
@@ -3737,6 +3726,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.7</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.8</div>
 </body>
 </html>

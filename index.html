@@ -855,7 +855,8 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <b style="color:var(--text);">Come funziona il calcolo ELO</b><br>
     ELO iniziale: <b>1200</b> · K=32 primi 30 match, K=20 dopo<br>
     Peso vittoria: 4-0 → 1.00 · 4-1 → 0.90 · 4-2 → 0.80 · 4-3 → 0.65 · Pareggio → 0.50<br>
-    Rating team = media ELO coppia · Δ = K × (S_effettivo − S_atteso)
+    Rating team = media ELO coppia · Δ = K × (S_effettivo − S_atteso)<br>
+    <b style="color:var(--text);">Correzione compagno:</b> se sei il più forte della coppia guadagni meno in vittoria e perdi di più in sconfitta (e viceversa). Max redistribuzione ±20%.
   </div>
 </div>
 
@@ -1993,20 +1994,43 @@ function computeElo(filterSeasonId){
     const eA = eloExpected(avgA, avgB);
     const eB = 1 - eA;
 
-    // Aggiorna ogni giocatore
-    [[m.a.p1, sA, eA], [m.a.p2, sA, eA], [m.b.p1, sB, eB], [m.b.p2, sB, eB]].forEach(([name, s, e]) => {
+    // ── Correzione per qualità del compagno ──
+    // peso_i = 1 - (ELO_i / (ELO_i + ELO_compagno)) × PARTNER_FACTOR
+    // Se sei il più forte della coppia → peso < 1 in vittoria (meno delta)
+    //                                  → peso > 1 in sconfitta (più penalità)
+    // Se sei il più debole            → viceversa (premiato se vinci, protetto se perdi)
+    // PARTNER_FACTOR = 0.4 → redistribuzione max ±20% del delta base
+    const PF = 0.4;
+    function partnerWeight(myElo, mateElo){
+      return 1 - (myElo / (myElo + mateElo)) * PF + PF / 2;
+      // = 0.8 se sei il doppio più forte, 1.0 se pari, 1.2 se sei la metà
+    }
+
+    const wA1 = partnerWeight(eloA1, eloA2);
+    const wA2 = partnerWeight(eloA2, eloA1);
+    const wB1 = partnerWeight(eloB1, eloB2);
+    const wB2 = partnerWeight(eloB2, eloB1);
+
+    // Aggiorna ogni giocatore con delta pesato
+    [
+      [m.a.p1, eloA1, sA, eA, wA1, m.a.p2, [m.b.p1, m.b.p2]],
+      [m.a.p2, eloA2, sA, eA, wA2, m.a.p1, [m.b.p1, m.b.p2]],
+      [m.b.p1, eloB1, sB, eB, wB1, m.b.p2, [m.a.p1, m.a.p2]],
+      [m.b.p2, eloB2, sB, eB, wB2, m.b.p1, [m.a.p1, m.a.p2]],
+    ].forEach(([name, , s, e, w, teammate, opponents]) => {
       const k     = eloK(played[name]);
-      const delta = Math.round(k * (s - e) * 10) / 10;
+      const deltaBase = k * (s - e);
+      const delta = Math.round(deltaBase * w * 10) / 10;
       const prev  = ratings[name];
       ratings[name] = Math.round((prev + delta) * 10) / 10;
       played[name]++;
       history[name].push({
-        elo:   ratings[name],
+        elo:       ratings[name],
         delta,
-        sa:    m.sa,
-        sb:    m.sb,
-        teammates: name === m.a.p1 ? [m.a.p2] : name === m.a.p2 ? [m.a.p1] : name === m.b.p1 ? [m.b.p2] : [m.b.p1],
-        opponents: (name === m.a.p1 || name === m.a.p2) ? [m.b.p1, m.b.p2] : [m.a.p1, m.a.p2],
+        sa:        m.sa,
+        sb:        m.sb,
+        teammates: [teammate],
+        opponents,
         won:   (name === m.a.p1 || name === m.a.p2) ? m.sa > m.sb : m.sb > m.sa,
         draw:  m.sa === m.sb,
         tName: t.name,
@@ -3982,6 +4006,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.1.9</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.0</div>
 </body>
 </html>

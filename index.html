@@ -897,7 +897,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     ELO iniziale: <b>1200</b> · K=32 primi 30 match, K=20 dopo<br>
     Peso vittoria: 4-0 → 1.00 · 4-1 → 0.90 · 4-2 → 0.80 · 4-3 → 0.65 · Pareggio → 0.50<br>
     Rating team = media ELO coppia · Δ = K × (S_effettivo − S_atteso)<br>
-    <b style="color:var(--text);">Correzione compagno (asimmetrica):</b> se sei il più debole della coppia perdi <b>meno</b> in sconfitta e guadagni <b>di più</b> in vittoria — e viceversa per il più forte. Max ±20%.
+    <b style="color:var(--text);">Correzione compagno:</b> ogni 200pt ELO di differenza tra compagni = ±10% sul delta. Il più forte perde di più in sconfitta e guadagna di meno in vittoria.
   </div>
 </div>
 
@@ -2116,9 +2116,8 @@ function computeEloSnapshot(excludeTournamentId){
     const avgA = (eloA1 + eloA2) / 2, avgB = (eloB1 + eloB2) / 2;
     const sA = eloS(m.sa, m.sb), sB = 1 - sA;
     const eA = eloExpected(avgA, avgB), eB = 1 - eA;
-    const PF = 0.4;
-    // Asimmetrico: debole perde meno in sconfitta, guadagna di più in vittoria
-    function pw(my, mate, dBase){ const r=my/(my+mate); return dBase>=0 ? 1+(0.5-r)*PF : 1-(0.5-r)*PF; }
+    // Correzione compagno: ogni 200pt ELO di differenza = ±10%
+    function pw(my,mate,dBase){ const adj=(my-mate)/200*0.1; return dBase>=0 ? 1-adj : 1+adj; }
     [[m.a.p1,eloA1,eloA2],[m.a.p2,eloA2,eloA1],
      [m.b.p1,eloB1,eloB2],[m.b.p2,eloB2,eloB1]].forEach(([n,myE,mateE],i)=>{
       const s = i<2 ? sA : sB, e = i<2 ? eA : eB;
@@ -2179,11 +2178,10 @@ function computeElo(filterSeasonId){
     //                                  → peso > 1 in sconfitta (più penalità)
     // Se sei il più debole            → viceversa (premiato se vinci, protetto se perdi)
     // PARTNER_FACTOR = 0.4 → redistribuzione max ±20% del delta base
-    const PF = 0.4;
-    // Asimmetrico: debole perde meno in sconfitta, guadagna di più in vittoria
+    // Correzione compagno: ogni 200pt ELO di differenza = ±10%
     function partnerWeight(myElo, mateElo, dBase){
-      const r = myElo / (myElo + mateElo);
-      return dBase >= 0 ? 1 + (0.5 - r) * PF : 1 - (0.5 - r) * PF;
+      const adj = (myElo - mateElo) / 200 * 0.1;
+      return dBase >= 0 ? 1 - adj : 1 + adj;
     }
 
     // Aggiorna ogni giocatore con delta pesato
@@ -3096,8 +3094,8 @@ function renderMatches(){
   t.players.forEach(p=>{ playedLiveM[p] = eloSnap[p] !== undefined ? 999 : 0; });
   // Pre-calcola previsioni e delta per TUTTE le partite in ordine
   const matchMeta = {};  // mid → {pA, pB, deltaMap, resultIcon, resultIconCol}
-  const PFm = 0.4;
-  function pwm(my,mate,dBase){ const r=my/(my+mate); return dBase>=0?1+(0.5-r)*PFm:1-(0.5-r)*PFm; }
+  // Correzione compagno: ogni 200pt ELO di differenza = ±10%
+  function pwm(my,mate,dBase){ const adj=(my-mate)/200*0.1; return dBase>=0 ? 1-adj : 1+adj; }
   t.matches.forEach(m=>{
     const mid = String(m.id);
     const e1=eloLiveM[m.a.p1]??ELO_START, e2=eloLiveM[m.a.p2]??ELO_START;
@@ -3915,7 +3913,7 @@ function renderTournamentDetail(){
   function teamE(p1,p2){ return (getE(p1)+getE(p2))/2; }
   function expW(eA,eB){ return 1/(1+Math.pow(10,(eB-eA)/400)); }
   const PF=0.4;
-  function pw(my,mate,dBase){ const r=my/(my+mate); return dBase>=0?1+(0.5-r)*PF:1-(0.5-r)*PF; }
+  function pw(my,mate,dBase){ const adj=(my-mate)/200*0.1; return dBase>=0 ? 1-adj : 1+adj; }
 
   // Conta sorprese per summary
   let upsets=0, asExp=0;
@@ -4361,6 +4359,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.4</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.5</div>
 </body>
 </html>

@@ -2708,11 +2708,54 @@ async function callAI(prompt){
 
 function formatAIText(text){
   if(!text) return '';
-  const paras = text.split(/\n+/).filter(p=>p.trim());
-  return paras.map((p,i)=>{
-    if(i===0) return `<p style="margin:0 0 14px;line-height:1.9;color:var(--text);font-size:14px;"><span style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:var(--accent);float:left;line-height:.85;margin-right:5px;margin-top:3px;">${p[0]}</span>${p.slice(1)}</p>`;
-    return `<p style="margin:0 0 12px;line-height:1.85;color:var(--text);font-size:13px;">${p}</p>`;
-  }).join('');
+
+  // Converte markdown in HTML stilizzato
+  const lines = text.split('\n');
+  let html = '';
+  let firstPara = true;
+
+  for(let i=0; i<lines.length; i++){
+    let line = lines[i].trim();
+    if(!line) continue;
+
+    // H1 → titolo grande con gradient
+    if(line.startsWith('# ')){
+      const t = line.slice(2).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:1px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px;line-height:1.2;">${t}</div>`;
+      continue;
+    }
+
+    // H2 → sezione con linea colorata
+    if(line.startsWith('## ')){
+      const t = line.slice(3).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin:18px 0 8px;padding-bottom:5px;border-bottom:2px solid var(--accent);opacity:.9;">${t}</div>`;
+      continue;
+    }
+
+    // H3 → sottosezione
+    if(line.startsWith('### ')){
+      const t = line.slice(4).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>');
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;color:var(--text);margin:14px 0 6px;">${t}</div>`;
+      continue;
+    }
+
+    // Paragrafo normale — converte **bold** e *italic*
+    line = line
+      .replace(/\*\*(.*?)\*\*/g, '<b style="color:var(--text);font-weight:800;">$1</b>')
+      .replace(/\*(.*?)\*/g, '<i style="color:var(--muted);">$1</i>');
+
+    if(firstPara){
+      // Prima lettera grande stile editoriale
+      const first = line[0];
+      const rest  = line.slice(1);
+      html += `<p style="margin:0 0 14px;line-height:1.85;color:var(--text);font-size:14px;"><span style="font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--accent);float:left;line-height:.8;margin-right:5px;margin-top:5px;">${first}</span>${rest}</p>`;
+      firstPara = false;
+    } else {
+      html += `<p style="margin:0 0 12px;line-height:1.85;color:var(--text);font-size:13px;">${line}</p>`;
+    }
+  }
+
+  return `<div style="clear:both;">${html}</div>`;
 }
 
 function aiFooter(){
@@ -2817,11 +2860,21 @@ async function generateTournamentAI(){
   });
   const sorted=Object.entries(stats).map(([n,s])=>({n,...s,avg:s.played?+(s.pts/s.played).toFixed(2):0})).sort((a,b)=>b.avg-a.avg||b.pts-a.pts);
   const eloSnap=computeEloSnapshot(t.id);
-  const upsets=done.filter(m=>{ const eA=(eloSnap[m.a.p1]??1200+eloSnap[m.a.p2]??1200)/2, eB=(eloSnap[m.b.p1]??1200+eloSnap[m.b.p2]??1200)/2, pA=1/(1+Math.pow(10,(eB-eA)/400)); return (m.sa>m.sb&&pA<0.4)||(m.sb>m.sa&&pA>0.6); }).length;
+  const upsets = done.filter(m=>{
+    const eA = ((eloSnap[m.a.p1]??1200) + (eloSnap[m.a.p2]??1200)) / 2;
+    const eB = ((eloSnap[m.b.p1]??1200) + (eloSnap[m.b.p2]??1200)) / 2;
+    const pA = 1 / (1 + Math.pow(10, (eB - eA) / 400));
+    return (m.sa > m.sb && pA < 0.45) || (m.sb > m.sa && pA > 0.55);
+  }).length;
 
-  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza questo torneo e scrivi un resoconto in italiano, tono vivace da telecronaca, massimo 200 parole. 3 paragrafi: 1) Andamento generale, 2) Protagonisti — chi ha brillato e chi ha deluso, 3) Momenti chiave e verdetto. Usa numeri specifici.
+  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza questo torneo e scrivi un resoconto in italiano, tono vivace da telecronaca, massimo 200 parole. Usa titoli H2 (##) per i 3 paragrafi: Andamento generale, Protagonisti, Momenti chiave e verdetto. Usa i numeri esatti forniti, non inventare statistiche.
 
-TORNEO "${t.name}" (${t.date?.slice(0,10)||'—'}): ${done.length}/${t.matches.length} partite giocate · Classifica: ${sorted.slice(0,4).map((s,i)=>`${i+1}.${s.n}(${s.avg}avg,${s.w}V/${s.l}S)`).join(' ')} · Sorprese ELO: ${upsets} · Giocatori: ${t.players.join(', ')}`;
+# Torneo "${t.name}"
+DATI:
+- Partite giocate: ${done.length}/${t.matches.length}
+- Classifica: ${sorted.slice(0,4).map((s,i)=>`${i+1}. ${s.n} — avg ${s.avg}, ${s.w}V/${s.l}S su ${s.played} partite`).join(' | ')}
+- Sorprese ELO (sfavorito che ha vinto): ${upsets} su ${done.length}
+- Giocatori: ${t.players.join(', ')}`;
 
   try {
     const text = await callAI(prompt);
@@ -5107,6 +5160,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.2</div>
 </body>
 </html>

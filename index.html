@@ -2519,6 +2519,8 @@ function showPage(name){
   document.querySelectorAll('.bn-item').forEach(b=>b.classList.remove('active'));
 
   document.getElementById('page-'+name)?.classList.add('active');
+  // Rimuovi eventuali breadcrumb iniettati in sessioni precedenti
+  document.querySelectorAll('.home-breadcrumb').forEach(el=>el.remove());
 
   // Desktop nav: mostra breadcrumb se non siamo a home
   const homeBtn   = document.getElementById('tab-home');
@@ -2557,21 +2559,6 @@ function showPage(name){
   if(name==='bookings') renderBookings();
   if(name==='elo')      renderElo();
   if(name==='tdetail')  renderTournamentDetail();
-
-  // Inietta breadcrumb ← Home in cima alla pagina (solo su mobile, dove la nav è nascosta)
-  if(name !== 'home'){
-    const pg = document.getElementById('page-'+name);
-    if(pg){
-      let bc = pg.querySelector('.home-breadcrumb');
-      if(!bc){
-        bc = document.createElement('div');
-        bc.className = 'home-breadcrumb';
-        bc.innerHTML = `← <span>Home</span>`;
-        bc.onclick = () => showPage('home');
-        pg.insertBefore(bc, pg.firstChild);
-      }
-    }
-  }
 }
 
 function renderHome(){
@@ -4616,6 +4603,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.2</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.3</div>
 </body>
 </html>

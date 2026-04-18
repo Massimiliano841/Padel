@@ -1570,18 +1570,21 @@ function renderLog(){
     list.innerHTML='<div class="empty-state">Nessuna attività registrata</div>'; return;
   }
 
-  list.innerHTML = filtered.map((e,i)=>`
-    <div class="log-item" style="animation-delay:${Math.min(i,.15)*0.03}s">
-      <div class="log-avatar" style="background:${userColor(e.user)}">${e.user[0].toUpperCase()}</div>
+  list.innerHTML = filtered.map((e,i)=>{
+    const safeUser   = (e.user||'?').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const safeAction = (e.action||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return `<div class="log-item" style="animation-delay:${Math.min(i,5)*0.03}s">
+      <div class="log-avatar" style="background:${userColor(e.user)}">${safeUser[0].toUpperCase()}</div>
       <div class="log-body">
         <div class="log-user">
-          <span class="log-badge ${e.category}">${LOG_LABELS[e.category]||e.category}</span>
-          ${e.user}
+          <span class="log-badge ${e.category||''}">${LOG_LABELS[e.category]||e.category||''}</span>
+          ${safeUser}
         </div>
-        <div class="log-action">${e.action}</div>
+        <div class="log-action">${safeAction}</div>
         <div class="log-time">${fmtDateTime(e.ts)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // Colore avatar deterministico per username
@@ -2507,17 +2510,26 @@ function syncFromWindow(){}
 // ═══════════════════════════════════
 //  MOBILE NAV
 // ═══════════════════════════════════
-const isMobile = ()=> window.innerWidth <= 600;
+const isMobile = ()=> window.innerWidth <= 768;
 
 function initMobileLayout(){
-  if(isMobile()){
-    document.getElementById('mobileHeader').style.display='flex';
-  }
+  const applyLayout = ()=>{
+    const nav = document.querySelector('nav.nav');
+    if(isMobile()){
+      document.getElementById('mobileHeader').style.display='flex';
+      if(nav){ nav.style.cssText='display:none!important;height:0!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;'; }
+    } else {
+      document.getElementById('mobileHeader').style.display='none';
+      if(nav){ nav.style.cssText=''; }
+    }
+  };
+  applyLayout();
+  window.addEventListener('resize', applyLayout);
   // Chiudi il menu mobile cliccando fuori
   document.addEventListener('click', e=>{
     const menu = document.getElementById('mobileMoreMenu');
     const btn  = document.getElementById('bn-more');
-    if(menu && menu.style.display==='flex' && !menu.contains(e.target) && !btn.contains(e.target)){
+    if(menu && menu.style.display==='flex' && !menu.contains(e.target) && !btn?.contains(e.target)){
       menu.style.display='none';
     }
   });
@@ -4644,6 +4656,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.1</div>
 </body>
 </html>

@@ -2717,7 +2717,6 @@ function renderProfileH2H(){
   const playerName = _profilePlayerName;
   if(!playerName) return;
 
-  // Popola select avversari
   const sel = document.getElementById('profile-h2h-select');
   const opponents = new Set();
   tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
@@ -2732,7 +2731,158 @@ function renderProfileH2H(){
 
   const opp = sel.value;
   const content = document.getElementById('profile-h2h-content');
-  if(!opp){ content.innerHTML = ''; return; }
+  if(!opp){ content.innerHTML=''; return; }
+
+  // Raccogli scontri diretti
+  const matches = [];
+  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+    const myA=m.a.p1===playerName||m.a.p2===playerName, myB=m.b.p1===playerName||m.b.p2===playerName;
+    const oppA=m.a.p1===opp||m.a.p2===opp, oppB=m.b.p1===opp||m.b.p2===opp;
+    if((myA&&oppA)||(myB&&oppB)) return; // stesso lato
+    if(!(myA||myB)||!(oppA||oppB)) return;
+    const won=myA?m.sa>m.sb:m.sb>m.sa, diff=Math.abs(m.sa-m.sb);
+    const pts=won?(diff===1?2:3):(diff===1?1:0);
+    const myPartner=myA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
+    const oppPartner=oppA?(m.a.p1===opp?m.a.p2:m.a.p1):(m.b.p1===opp?m.b.p2:m.b.p1);
+    const score=myA?`${m.sa}-${m.sb}`:`${m.sb}-${m.sa}`;
+    matches.push({won,pts,diff,myPartner,oppPartner,score,tName:t.name,tDate:t.date});
+  }));
+  matches.sort((a,b)=>(b.tDate||'').localeCompare(a.tDate||''));
+
+  if(!matches.length){ content.innerHTML=`<div class="empty-state">Nessun incontro diretto con ${opp}.</div>`; return; }
+
+  const wins=matches.filter(m=>m.won).length, losses=matches.length-wins;
+  const winPct=Math.round(wins/matches.length*100);
+  const myAvg=(matches.reduce((s,m)=>s+m.pts,0)/matches.length).toFixed(2);
+  const winCol=winPct>=60?'#047857':winPct<=40?'var(--red)':'var(--muted)';
+
+  // Confronto ELO globale
+  const {ratings:eloR}=computeElo('all');
+  const myEloNow=(eloR[playerName]??ELO_START).toFixed(0);
+  const oppEloNow=(eloR[opp]??ELO_START).toFixed(0);
+
+  // Confronto media pt globale
+  function playerAvg(name){
+    let pts=0,n=0;
+    tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+      const inA=m.a.p1===name||m.a.p2===name, inB=m.b.p1===name||m.b.p2===name;
+      if(!inA&&!inB) return;
+      const won=inA?m.sa>m.sb:m.sb>m.sa, diff=Math.abs(m.sa-m.sb);
+      pts+=won?(diff===1?2:3):(diff===1?1:0); n++;
+    }));
+    return n>0?pts/n:0;
+  }
+  const myAvgAll=playerAvg(playerName).toFixed(2);
+  const oppAvgAll=playerAvg(opp).toFixed(2);
+
+  // Forma recente (ultimi 5)
+  function lastN(name,n){
+    const all=[];
+    tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+      const inA=m.a.p1===name||m.a.p2===name, inB=m.b.p1===name||m.b.p2===name;
+      if(!inA&&!inB) return;
+      const won=inA?m.sa>m.sb:m.sb>m.sa, diff=Math.abs(m.sa-m.sb);
+      const pts=won?(diff===1?2:3):(diff===1?1:0);
+      all.push({won,pts,date:t.date});
+    }));
+    all.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    return all.slice(0,n);
+  }
+  const myLast5=lastN(playerName,5), oppLast5=lastN(opp,5);
+  const myFormaW=myLast5.filter(m=>m.won).length, oppFormaW=oppLast5.filter(m=>m.won).length;
+  const myFormaPts=myLast5.reduce((s,m)=>s+m.pts,0), oppFormaPts=oppLast5.reduce((s,m)=>s+m.pts,0);
+
+  function formaCircles(arr){
+    return arr.map(m=>`<span style="width:22px;height:22px;border-radius:50%;background:${m.won?'#047857':'var(--red)'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">${m.won?'V':'S'}</span>`).join('');
+  }
+
+  function statRow(label,myVal,oppVal,higherBetter=true){
+    const mn=parseFloat(myVal),on=parseFloat(oppVal);
+    const myB=higherBetter?mn>on:mn<on, oppB=higherBetter?on>mn:on<mn;
+    return `<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:${myB?'#047857':oppB?'var(--red)':'var(--text)'};">${myVal}</div>
+      <div style="text-align:center;font-size:10px;color:var(--muted);letter-spacing:1px;padding:0 6px;white-space:nowrap;">${label}</div>
+      <div style="text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:${oppB?'#047857':myB?'var(--red)':'var(--text)'};">${oppVal}</div>
+    </div>`;
+  }
+
+  content.innerHTML = `
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;text-align:center;">⚔️ Scontri Diretti</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;text-align:center;margin-bottom:14px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--accent);">${playerName}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:800;line-height:1;color:${winCol};">${wins}</div>
+          <div style="font-size:11px;color:var(--muted);">vittorie</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--muted);">VS</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--accent);">${opp}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:800;line-height:1;color:${winPct<50?'#047857':winPct>50?'var(--red)':'var(--muted)'};">${losses}</div>
+          <div style="font-size:11px;color:var(--muted);">vittorie</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${winCol};">${winPct}%</div>
+          <div style="font-size:10px;color:var(--muted);">win rate</div>
+        </div>
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);">${matches.length}</div>
+          <div style="font-size:10px;color:var(--muted);">incontri</div>
+        </div>
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent2);">${myAvg}</div>
+          <div style="font-size:10px;color:var(--muted);">avg pt H2H</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;text-align:center;">📊 Confronto Statistiche</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;margin-bottom:6px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--accent);text-align:right;padding-right:8px;">${playerName}</div>
+        <div></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--accent);text-align:left;padding-left:8px;">${opp}</div>
+      </div>
+      ${statRow('ELO',myEloNow,oppEloNow)}
+      ${statRow('Media pt/partita',myAvgAll,oppAvgAll)}
+      ${statRow('Vittorie ultimi 5',myFormaW,oppFormaW)}
+      ${statRow('Punti ultimi 5',myFormaPts,oppFormaPts)}
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;text-align:center;">🔥 Forma Recente (ultimi 5)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${playerName}</div>
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">${formaCircles(myLast5)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">${myFormaW}/5 vinte</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${opp}</div>
+          <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">${formaCircles(oppLast5)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">${oppFormaW}/5 vinte</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Tutti gli scontri diretti</div>
+    ${matches.map(m=>{
+      const col=m.won?'#047857':'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;flex-shrink:0;">${m.won?'V':'S'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:10px;color:var(--muted);">${m.tName}</div>
+          <div style="font-size:12px;font-weight:600;">con ${m.myPartner} vs ${opp} & ${m.oppPartner}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);">${m.score}</div>
+          <div style="font-size:10px;color:${col};font-weight:700;">${m.pts} pt</div>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
 
 function renderProfileCouples(){
   const playerName = _profilePlayerName;
@@ -2756,7 +2906,7 @@ function renderProfileCouples(){
         const detailId=`pcd-${c.key.replace(/\+/g,'-')}`;
         return `<div>
           <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:2px;cursor:pointer;" onclick="document.getElementById('${detailId}').style.display=document.getElementById('${detailId}').style.display==='none'?'block':'none'">
-            <div style="font-size:18px;width:24px;text-align:center;">${medal||`<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--muted);font-size:14px;">${i+1}</span>`}</div>
+            <div style="font-size:16px;width:24px;text-align:center;">${medal||`<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--muted);font-size:13px;">${i+1}</span>`}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:800;font-size:14px;">${c.partner}</div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;">${c.played} partite · ${c.wins}V/${c.losses}S · ${winPct}% vittorie</div>
@@ -2783,99 +2933,6 @@ function renderProfileCouples(){
         </div>`;
       }).join('')
     : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">Nessuna partita di coppia trovata.</div>';
-}
-
-  // Partite in cui entrambi hanno giocato (su lati opposti)
-  const matches = [];
-  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
-    const myA  = m.a.p1===playerName||m.a.p2===playerName;
-    const myB  = m.b.p1===playerName||m.b.p2===playerName;
-    const oppA = m.a.p1===opp||m.a.p2===opp;
-    const oppB = m.b.p1===opp||m.b.p2===opp;
-    // Stesso lato: non conta come H2H diretto
-    if((myA&&oppA)||(myB&&oppB)) return;
-    if(!(myA||myB)||!(oppA||oppB)) return;
-    const won = myA ? m.sa>m.sb : m.sb>m.sa;
-    const diff = Math.abs(m.sa-m.sb);
-    const pts  = won?(diff===1?2:3):(diff===1?1:0);
-    const myPartner  = myA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
-    const oppPartner = oppA?(m.a.p1===opp?m.a.p2:m.a.p1):(m.b.p1===opp?m.b.p2:m.b.p1);
-    const score = myA?`${m.sa}-${m.sb}`:`${m.sb}-${m.sa}`;
-    matches.push({won,pts,diff,myPartner,oppPartner,score,tName:t.name,tDate:t.date});
-  }));
-  matches.sort((a,b)=>(b.tDate||'').localeCompare(a.tDate||''));
-
-  if(!matches.length){
-    content.innerHTML = `<div class="empty-state">Nessun incontro diretto con ${opp}.</div>`;
-    return;
-  }
-
-  const wins   = matches.filter(m=>m.won).length;
-  const losses = matches.length - wins;
-  const winPct = Math.round(wins/matches.length*100);
-  const myAvg  = (matches.reduce((s,m)=>s+m.pts,0)/matches.length).toFixed(2);
-  const winCol = winPct>=60?'#047857':winPct<=40?'var(--red)':'var(--muted)';
-
-  // Mini-ELO H2H (solo queste partite, partendo da 1200)
-  let myElo=1200, oppElo=1200;
-  const eloTrail = matches.slice().reverse().map(m=>{
-    const sMe = m.won?eloS(1,0):eloS(0,1);
-    const exp  = 1/(1+Math.pow(10,(oppElo-myElo)/400));
-    const k    = 20;
-    const dm   = Math.round(k*(sMe-exp)*10)/10;
-    myElo  = Math.round((myElo+dm)*10)/10;
-    oppElo = Math.round((oppElo-dm)*10)/10;
-    return {myElo, won:m.won};
-  });
-
-  content.innerHTML = `
-    <!-- Scoreboard -->
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;">
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin-bottom:14px;">
-        <div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);">${playerName}</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:${winCol};">${wins}</div>
-          <div style="font-size:11px;color:var(--muted);">vittorie</div>
-        </div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--muted);">VS</div>
-        <div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);">${opp}</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:${winPct<=50?'#047857':'var(--red)'};">${losses}</div>
-          <div style="font-size:11px;color:var(--muted);">vittorie</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${winCol};">${winPct}%</div>
-          <div style="font-size:10px;color:var(--muted);">win rate</div>
-        </div>
-        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);">${matches.length}</div>
-          <div style="font-size:10px;color:var(--muted);">incontri</div>
-        </div>
-        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent2);">${myAvg}</div>
-          <div style="font-size:10px;color:var(--muted);">avg pt/match</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Lista scontri -->
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Scontri diretti</div>
-    ${matches.map(m=>{
-      const col = m.won?'#047857':'var(--red)';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;">
-        <span style="width:24px;height:24px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;flex-shrink:0;">${m.won?'V':'S'}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--muted);">${m.tName}</div>
-          <div style="font-size:12px;font-weight:600;">con ${m.myPartner} vs ${opp} & ${m.oppPartner}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);">${m.score}</div>
-          <div style="font-size:10px;color:${col};font-weight:700;">${m.pts} pt</div>
-        </div>
-      </div>`;
-    }).join('')}`;
 }
 
 let _profilePlayerName = null;
@@ -5703,6 +5760,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.7</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.8</div>
 </body>
 </html>

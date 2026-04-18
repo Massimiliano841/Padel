@@ -1173,13 +1173,15 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 </div>
 
 <!-- ELO explanation modal -->
-<div class="modal-overlay" id="eloExplainOverlay" onclick="closeEloExplain()" style="display:none;align-items:flex-end;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;border-radius:20px 20px 0 0;margin:0;padding:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;letter-spacing:1px;">⚡ Spiegazione ELO</div>
-      <button class="btn-sm" onclick="closeEloExplain()">✕</button>
+<div id="eloExplainOverlay" onclick="closeEloExplain()" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+  <div onclick="event.stopPropagation()" style="background:var(--s1);border-radius:20px;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.25);overflow:hidden;">
+    <!-- Header fisso -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:1.5px;">⚡ SPIEGAZIONE ELO</div>
+      <button onclick="closeEloExplain()" style="background:var(--s2);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;color:var(--muted);line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
     </div>
-    <div id="eloExplainContent" style="font-size:13px;line-height:1.8;"></div>
+    <!-- Contenuto scrollabile -->
+    <div id="eloExplainContent" style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px 24px;flex:1;font-size:13px;line-height:1.8;"></div>
   </div>
 </div>
 
@@ -4429,7 +4431,8 @@ function showEloExplain(html){
   const overlay = document.getElementById('eloExplainOverlay');
   document.getElementById('eloExplainContent').innerHTML = html;
   overlay.style.display = 'flex';
-  // Prevent body scroll
+  // Reset scroll to top
+  document.getElementById('eloExplainContent').scrollTop = 0;
   document.body.style.overflow = 'hidden';
 }
 function closeEloExplain(){
@@ -4444,71 +4447,97 @@ function buildEloExplainHtml(p){
   const avgA = (elo1a+elo2a)/2, avgB = (elo1b+elo2b)/2;
   const isDone = sa !== undefined && sb !== undefined;
 
-  function dn(n){ return `<b>${n}</b>`; }
-  function col(v,pos,neg){ return `<span style="color:${v>0?pos:v<0?neg:'var(--muted)'}">${v>0?'+':''}${v}</span>`; }
+  // Helper: sezione con titolo
+  function section(num, title, content){
+    return `<div style="margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${num} · ${title}</div>
+      <div style="background:var(--s2);border-radius:12px;padding:14px 16px;">${content}</div>
+    </div>`;
+  }
+
+  // Helper: riga di dati
+  function row(label, value){ return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);font-size:12px;">${label}</span><span style="font-weight:700;font-size:13px;">${value}</span></div>`; }
+  function rowLast(label, value){ return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;"><span style="color:var(--muted);font-size:12px;">${label}</span><span style="font-weight:700;font-size:13px;">${value}</span></div>`; }
 
   let html = '';
 
-  // ── 1. Rating delle coppie ──
-  html += `<div style="margin-bottom:12px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">1 · Rating coppie</div>
-    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:2;">
-      ${dn(p1a)} (${elo1a}) + ${dn(p2a)} (${elo2a}) → media coppia A = <b>${avgA.toFixed(0)}</b><br>
-      ${dn(p1b)} (${elo1b}) + ${dn(p2b)} (${elo2b}) → media coppia B = <b>${avgB.toFixed(0)}</b>
-    </div>
-  </div>`;
+  // ── 1. Rating coppie ──
+  const teamAContent = `
+    ${row(`${p1a} + ${p2a}`, `${elo1a.toFixed(0)} + ${elo2a.toFixed(0)}`)}
+    ${rowLast('Media coppia A', `<b style="color:var(--accent)">${avgA.toFixed(0)}</b>`)}`;
+  const teamBContent = `
+    ${row(`${p1b} + ${p2b}`, `${elo1b.toFixed(0)} + ${elo2b.toFixed(0)}`)}
+    ${rowLast('Media coppia B', `<b style="color:var(--accent)">${avgB.toFixed(0)}</b>`)}`;
+  html += section(1, 'Rating coppie', teamAContent + '<div style="height:8px;"></div>' + teamBContent);
 
   // ── 2. Probabilità attesa ──
   const diff = avgB - avgA;
-  html += `<div style="margin-bottom:12px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">2 · Probabilità attesa</div>
-    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:2;">
-      Differenza media: ${avgB.toFixed(0)} − ${avgA.toFixed(0)} = <b>${diff.toFixed(0)} pt</b> (${diff>0?'B favorita':'A favorita'})<br>
-      Formula: 1 ÷ (1 + 10^(${diff.toFixed(0)} ÷ 400))<br>
-      → Prob. vittoria A = <b style="color:var(--accent2)">${Math.round(pA*100)}%</b> · Prob. vittoria B = <b style="color:var(--accent2)">${Math.round(pB*100)}%</b>
-    </div>
-  </div>`;
+  const favored = diff > 0 ? `B favorita (+${diff.toFixed(0)} pt)` : diff < 0 ? `A favorita (+${(-diff).toFixed(0)} pt)` : 'Partita equilibrata';
+  const probContent = `
+    ${row('Differenza media ELO', `${Math.abs(diff).toFixed(0)} pt — ${favored}`)}
+    ${row('Formula', `1 ÷ (1 + 10^(${diff.toFixed(0)} ÷ 400))`)}
+    ${row('Prob. vittoria coppia A', `<b style="color:${pA>=0.5?'var(--accent2)':'var(--red)'}">${Math.round(pA*100)}%</b>`)}
+    ${rowLast('Prob. vittoria coppia B', `<b style="color:${pB>=0.5?'var(--accent2)':'var(--red)'}">${Math.round(pB*100)}%</b>`)}`;
+  html += section(2, 'Probabilità attesa', probContent);
 
   if(!isDone){
-    html += `<div style="padding:10px 12px;background:var(--s2);border-radius:10px;font-size:12px;color:var(--muted);">Partita non ancora giocata — delta ELO disponibile dopo il risultato.</div>`;
+    html += `<div style="background:var(--s2);border-radius:12px;padding:14px 16px;font-size:13px;color:var(--muted);text-align:center;">
+      ⏳ Partita non ancora giocata<br><span style="font-size:11px;">Il delta ELO sarà disponibile dopo il risultato.</span>
+    </div>`;
     return html;
   }
 
   // ── 3. Peso punteggio ──
   const diffScore = Math.abs(sa-sb);
-  const sA = sa>sb ? (diffScore>=4?1.0:diffScore===3?0.90:diffScore===2?0.80:0.65) : sa===sb?0.5:(diffScore>=4?0.0:diffScore===3?0.10:diffScore===2?0.20:0.35);
+  const sA = sa>sb ? (diffScore>=4?1.0:diffScore===3?0.90:diffScore===2?0.80:0.65)
+                   : sa===sb ? 0.5
+                   : (diffScore>=4?0.0:diffScore===3?0.10:diffScore===2?0.20:0.35);
   const sB = 1-sA;
-  const scoreLabel = sa===sb?'Pareggio':diffScore===1?'4-3 (bella)':diffScore===2?`${Math.max(sa,sb)}-${Math.min(sa,sb)} (scarto 2)`:diffScore===3?`${Math.max(sa,sb)}-${Math.min(sa,sb)} (scarto 3)`:`${Math.max(sa,sb)}-${Math.min(sa,sb)} (netta)`;
-  html += `<div style="margin-bottom:12px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">3 · Peso punteggio</div>
-    <div style="background:var(--s2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:2;">
-      Risultato: <b>${sa}:${sb}</b> (${scoreLabel})<br>
-      S effettivo coppia A = <b>${sA.toFixed(2)}</b> · coppia B = <b>${sB.toFixed(2)}</b>
-    </div>
-  </div>`;
+  const scoreLabel = sa===sb ? 'Pareggio (1pt–1pt)'
+    : diffScore===1 ? `${sa}:${sb} — bella (2pt–1pt)`
+    : diffScore===2 ? `${sa}:${sb} — scarto 2`
+    : diffScore===3 ? `${sa}:${sb} — scarto 3`
+    : `${sa}:${sb} — vittoria netta`;
+  const scoreContent = `
+    ${row('Risultato', `<b>${scoreLabel}</b>`)}
+    ${row('S effettivo coppia A', `<b>${sA.toFixed(2)}</b>`)}
+    ${rowLast('S effettivo coppia B', `<b>${sB.toFixed(2)}</b>`)}`;
+  html += section(3, 'Peso punteggio', scoreContent);
 
   // ── 4. Delta per ogni giocatore ──
-  html += `<div style="margin-bottom:4px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">4 · Delta ELO per giocatore</div>`;
+  html += `<div style="margin-bottom:4px;"><div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">4 · Delta ELO per giocatore</div>`;
 
-  [[p1a,elo1a,elo2a,sA,pA],[p2a,elo2a,elo1a,sA,pA],[p1b,elo1b,elo2b,sB,pB],[p2b,elo2b,elo1b,sB,pB]].forEach(([name,myE,mateE,s,e])=>{
+  [[p1a,elo1a,elo2a,sA,pA,'A'],[p2a,elo2a,elo1a,sA,pA,'A'],[p1b,elo1b,elo2b,sB,pB,'B'],[p2b,elo2b,elo1b,sB,pB,'B']].forEach(([name,myE,mateE,s,e,team])=>{
     const k = (playedMap?.[name]??0) < 30 ? 32 : 20;
     const dBase = k*(s-e);
     const adj = (myE-mateE)/200*0.1;
     const w = dBase>=0 ? 1-adj : 1+adj;
     const delta = Math.round(dBase*w*10)/10;
-    const corrDir = dBase>=0 ? (adj>0?'ridotto (sei il più forte)':'aumentato (sei il più debole)') : (adj>0?'aumentato (sei il più forte)':'ridotto (sei il più debole)');
-    const corrNote = Math.abs(myE-mateE)>50 ? ` → corretto ${corrDir} (diff. ${Math.abs(myE-mateE).toFixed(0)}pt con ${mateE<myE?(name===p1a?p2a:name===p2a?p1a:name===p1b?p2b:p2b):(name===p1a?p2a:name===p2a?p1a:name===p1b?p2b:p2b)})` : '';
-    const teamName = (name===p1a||name===p2a)?`Coppia A`:`Coppia B`;
-    html += `<div style="background:var(--s2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.9;margin-bottom:6px;">
-      <b>${name}</b> <span style="color:var(--muted);font-size:11px;">(${teamName} · ELO ${myE.toFixed(0)} · K=${k})</span><br>
-      S effettivo = <b>${s.toFixed(2)}</b> · S atteso = <b>${e.toFixed(2)}</b><br>
-      Delta base = ${k} × (${s.toFixed(2)} − ${e.toFixed(2)}) = <b>${dBase.toFixed(1)}</b>${corrNote}<br>
-      Peso compagno = <b>${w.toFixed(3)}</b> · Delta finale = <b>${dBase.toFixed(1)} × ${w.toFixed(3)}</b> = <b style="color:${delta>0?'var(--green)':delta<0?'var(--red)':'var(--muted)'}">${delta>0?'+':''}${delta}</b>
+    const mateN = team==='A' ? (name===p1a?p2a:p1a) : (name===p1b?p2b:p1b);
+    const diffAbs = Math.abs(myE-mateE);
+    const stronger = myE > mateE;
+    const corrNote = diffAbs > 50
+      ? (dBase>=0
+          ? (stronger ? `Ridotto: sei il più forte (${diffAbs.toFixed(0)}pt su ${mateN})` : `Aumentato: sei il più debole (${diffAbs.toFixed(0)}pt sotto ${mateN})`)
+          : (stronger ? `Aumentato: sei il più forte (${diffAbs.toFixed(0)}pt su ${mateN})` : `Ridotto: sei il più debole (${diffAbs.toFixed(0)}pt sotto ${mateN})`))
+      : 'Coppia equilibrata';
+    const deltaCol = delta>0?'var(--green)':delta<0?'var(--red)':'var(--muted)';
+    html += `<div style="background:var(--s2);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;">${name}</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:6px;">Coppia ${team} · ELO ${myE.toFixed(0)} · K=${k}</span>
+        </div>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:${deltaCol};">${delta>0?'+':''}${delta}</span>
+      </div>
+      ${row('S effettivo', `${s.toFixed(2)}`)}
+      ${row('S atteso', `${e.toFixed(2)}`)}
+      ${row('Delta base', `${k} × (${s.toFixed(2)} − ${e.toFixed(2)}) = <b>${dBase.toFixed(1)}</b>`)}
+      ${row('Correzione compagno', `<span style="font-size:11px;">${corrNote}</span>`)}
+      ${rowLast('Peso × delta', `${w.toFixed(3)} × ${dBase.toFixed(1)} = <b style="color:${deltaCol}">${delta>0?'+':''}${delta}</b>`)}
     </div>`;
   });
   html += `</div>`;
-
   return html;
 }
 
@@ -4603,6 +4632,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.3</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.4</div>
 </body>
 </html>

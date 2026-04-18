@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Padel Pro</title>
 
 <!-- Service Worker — forza aggiornamento PWA ad ogni nuova versione -->
@@ -318,11 +318,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 
 /* LOG */
-.log-item{display:flex;gap:10px;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;align-items:flex-start;animation:fadeUp .25s ease both;}
+.log-item{display:flex;gap:10px;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;align-items:flex-start;animation:fadeUp .25s ease both;overflow:hidden;}
 .log-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
-.log-body{flex:1;min-width:0;}
-.log-user{font-weight:700;font-size:13px;color:var(--text);}
-.log-action{font-size:12px;color:var(--muted);margin-top:1px;}
+.log-body{flex:1;min-width:0;overflow:hidden;}
+.log-user{font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-action{font-size:12px;color:var(--muted);margin-top:1px;word-break:break-word;overflow-wrap:anywhere;}
 .log-time{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.5px;}
 .log-badge{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;padding:1px 7px;border-radius:20px;font-weight:700;margin-right:4px;}
 .log-badge.players{background:rgba(29,78,216,.12);color:#1e3a8a;}
@@ -398,7 +398,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 @media(max-width:600px){
 
   /* Nasconde topnav su mobile, mostra bottom nav */
-  .nav{ display:none !important; }
+  .nav{ display:none !important; visibility:hidden !important; height:0 !important; overflow:hidden !important; }
 
   .bottom-nav{
     display:flex;
@@ -408,10 +408,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     background:rgba(240,242,247,.97);
     backdrop-filter:blur(14px);
     border-top:1px solid var(--border);
-    padding:0;
-    height:60px;
+    padding:0 0 env(safe-area-inset-bottom);
+    height:calc(60px + env(safe-area-inset-bottom));
     justify-content:space-around;
-    align-items:stretch;
+    align-items:flex-start;
+    padding-top:0;
   }
 
   /* Header mobile con logo + stato + user */
@@ -432,7 +433,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   .mobile-header-right{display:flex;align-items:center;gap:8px;}
 
   /* Page padding con bottom nav */
-  .page{padding:14px 12px 80px;max-width:100%;}
+  .page{padding:14px 12px calc(80px + env(safe-area-inset-bottom));max-width:100%;}
 
   /* Giocatori */
   .player-item{flex-wrap:wrap;gap:6px;}
@@ -833,7 +834,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div class="pills" id="logFilter">
     <button class="pill active" onclick="filterLog('all',this)">Tutti</button>
   </div>
-  <div id="logList"></div>
+  <div id="logList" style="overflow-x:hidden;"></div>
 </div>
 
 <!-- ════ UTENTI (solo admin) ════ -->
@@ -1102,18 +1103,18 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
         <div class="home-card-label">Export</div>
         <div class="home-card-sub">Excel & backup</div>
       </div>
+      <div class="home-card" onclick="showPage('log')">
+        <div class="home-card-icon">📜</div>
+        <div class="home-card-label">Log</div>
+        <div class="home-card-sub">Storico azioni</div>
+      </div>
     </div>
   </div>
 
   <!-- ADMIN (solo master) -->
   <div class="home-section" id="home-admin-section" style="display:none;">
     <div class="home-section-title">👑 Admin</div>
-    <div class="home-grid" style="grid-template-columns:repeat(2,1fr);">
-      <div class="home-card" onclick="showPage('log')">
-        <div class="home-card-icon">📜</div>
-        <div class="home-card-label">Log</div>
-        <div class="home-card-sub">Storico azioni</div>
-      </div>
+    <div class="home-grid" style="grid-template-columns:1fr;">
       <div class="home-card" onclick="showPage('users')">
         <div class="home-card-icon">👑</div>
         <div class="home-card-label">Utenti</div>
@@ -4643,6 +4644,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.9</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.0</div>
 </body>
 </html>

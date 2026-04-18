@@ -485,17 +485,17 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE HEADER (solo smartphone) -->
 <div class="mobile-header" id="mobileHeader" style="display:none;">
-
-<!-- BANNER AGGIORNAMENTO -->
-<div id="sw-update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:var(--accent);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;box-shadow:0 2px 12px rgba(0,0,0,.2);">
-  <span>🔄 Nuova versione disponibile!</span>
-  <button onclick="swUpdate()" style="background:#fff;color:var(--accent);border:none;border-radius:7px;padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;cursor:pointer;">AGGIORNA ORA</button>
-</div>
   <div class="mobile-header-logo">PADEL PRO</div>
   <div class="mobile-header-right">
     <div id="fb-status-mobile" style="font-size:13px;">🔄</div>
     <div id="user-chip-mobile" class="user-chip" style="display:none;"></div>
   </div>
+</div>
+
+<!-- BANNER AGGIORNAMENTO -->
+<div id="sw-update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:var(--accent);color:#fff;padding:10px 16px;align-items:center;justify-content:space-between;gap:10px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;box-shadow:0 2px 12px rgba(0,0,0,.2);">
+  <span>🔄 Nuova versione disponibile!</span>
+  <button onclick="swUpdate()" style="background:#fff;color:var(--accent);border:none;border-radius:7px;padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;cursor:pointer;">AGGIORNA ORA</button>
 </div>
 
 <!-- NAV (desktop) -->
@@ -564,7 +564,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 </nav>
 
 <!-- MOBILE MORE MENU -->
-<div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;">
+<div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;overflow-y:auto;max-height:75vh;">
   <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('home');closeMobileMenu();" id="bn-home-menu">🏠 Home</button>
   <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
   <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
@@ -1441,6 +1441,44 @@ async function adminDeleteUser(username){
   renderUserList(users);
 }
 
+async function adminLinkPlayer(username){
+  if(!currentUser?.isMaster) return;
+  let users = await sbGet('users').catch(()=>null);
+  if(!Array.isArray(users)) users=[];
+  const u = users.find(x=>x.username===username);
+  if(!u) return;
+
+  // Opzioni: nessun collegamento + lista giocatori
+  const opts = ['(nessuno)', ...players.map(p=>p.name)];
+  const curIdx = u.playerLink ? opts.indexOf(u.playerLink) : 0;
+
+  // Mostra una select tramite prompt simulato con showModal
+  // Usiamo un approccio con innerHTML nel modal
+  const mo = document.getElementById('modalOverlay');
+  const mt = document.getElementById('modalTitle');
+  const mm = document.getElementById('modalMsg');
+  const mc = document.getElementById('modalConfirmBtn');
+  mt.textContent = `Collega ${username} a un giocatore`;
+  mm.innerHTML = `<select id="linkPlayerSel" class="inp" style="margin-top:8px;font-size:14px;">
+    ${opts.map((n,i)=>`<option value="${n}" ${i===curIdx?'selected':''}>${n}</option>`).join('')}
+  </select>`;
+  mc.textContent = 'Salva';
+  mc.style.background = 'var(--accent2)';
+  mc.style.borderColor = 'var(--accent2)';
+  pendingDeleteFn = async ()=>{
+    const sel = document.getElementById('linkPlayerSel');
+    const chosen = sel?.value;
+    u.playerLink = (chosen && chosen !== '(nessuno)') ? chosen : null;
+    await sbSet('users', users);
+    addLog('auth', `Admin ha collegato ${username} → ${u.playerLink||'(nessuno)'}`);
+    mc.style.background = '';
+    mc.style.borderColor = '';
+    mc.textContent = 'Elimina';
+    renderUserList(users);
+  };
+  mo.classList.add('show');
+}
+
 async function renderUserList(users){
   if(!users){
     users = await sbGet('users').catch(()=>null);
@@ -1449,16 +1487,25 @@ async function renderUserList(users){
   const el = document.getElementById('userList');
   if(!el) return;
   if(!users.length){ el.innerHTML='<div class="empty-state">Nessun utente</div>'; return; }
-  el.innerHTML = users.map(u=>`
-    <div class="user-item">
+  el.innerHTML = users.map(u=>{
+    const linked = players.find(p=>p.name===u.playerLink);
+    const linkLabel = linked
+      ? `<span style="font-size:11px;color:var(--accent2);font-weight:600;">🎾 ${linked.name}</span>`
+      : `<span style="font-size:11px;color:var(--muted);">Nessun giocatore collegato</span>`;
+    return `<div class="user-item" style="flex-wrap:wrap;gap:6px;">
       <div class="user-item-avatar" style="background:${userColor(u.username)}">${u.username[0].toUpperCase()}</div>
-      <div class="user-item-name">${u.username}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="user-item-name">${u.username}</div>
+        <div>${linkLabel}</div>
+      </div>
       ${u.isMaster ? '<span class="user-item-badge master">👑 MASTER</span>' : '<span class="user-item-badge">UTENTE</span>'}
       ${!u.isMaster ? `
-        <button class="btn-sm" onclick="adminChangePassword('${u.username}')" style="border-color:var(--accent);color:var(--accent);">🔑 Password</button>
+        <button class="btn-sm" style="border-color:var(--accent2);color:var(--accent2);" onclick="adminLinkPlayer('${u.username}')">🎾 Collega</button>
+        <button class="btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="adminChangePassword('${u.username}')">🔑</button>
         <button class="btn-sm" onclick="adminDeleteUser('${u.username}')">✕</button>
       ` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════
@@ -4406,7 +4453,15 @@ function showModal(title, msg, onConfirm){
   pendingDeleteFn=onConfirm;
   document.getElementById('modalOverlay').classList.add('show');
 }
-function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); pendingDeleteFn=null; }
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+  pendingDeleteFn=null;
+  // Reset modal to default state
+  const mc = document.getElementById('modalConfirmBtn');
+  if(mc){ mc.textContent='Elimina'; mc.style.background=''; mc.style.borderColor=''; }
+  const mm = document.getElementById('modalMsg');
+  if(mm) mm.innerHTML='';
+}
 document.getElementById('modalConfirmBtn').onclick=()=>{ if(pendingDeleteFn) pendingDeleteFn(); closeModal(); };
 
 // ── ELO Explanation Modal ──
@@ -4588,6 +4643,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.8</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.2.9</div>
 </body>
 </html>

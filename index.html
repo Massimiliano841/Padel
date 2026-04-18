@@ -1135,7 +1135,10 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🔥 Forma recente — ultimi 10 match</div>
     <div id="profile-form" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>
-    <div id="profile-form-stats" style="font-size:12px;color:var(--muted);"></div>
+    <div id="profile-form-stats" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Media pt/partita nel tempo</div>
+    <svg id="profile-avg-sparkline" width="100%" height="50" style="display:block;margin-bottom:4px;"></svg>
+    <div id="profile-avg-range" style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;"></div>
   </div>
 
   <!-- Compagni e avversari -->
@@ -2561,6 +2564,18 @@ async function renderProfile(){
   document.getElementById('profile-form-stats').textContent =
     last10.length ? `${r10wins} vinte su ${last10.length} — Media: ${(r10pts/last10.length).toFixed(2)} pt/partita` : '';
 
+  // Sparkline media punti cumulativa (finestra mobile 10 partite)
+  const avgHistory = allMatches.map((_,i)=>{
+    const window = allMatches.slice(Math.max(0,i-9), i+1);
+    return window.reduce((s,m)=>s+m.pts,0)/window.length;
+  });
+  renderSparkline('profile-avg-sparkline', avgHistory, '#047857');
+  const minAvg = avgHistory.length ? Math.min(...avgHistory).toFixed(2) : '—';
+  const maxAvg = avgHistory.length ? Math.max(...avgHistory).toFixed(2) : '—';
+  const curAvg = avgHistory.length ? avgHistory[avgHistory.length-1].toFixed(2) : '—';
+  document.getElementById('profile-avg-range').innerHTML =
+    `<span>Min: <b>${minAvg}</b></span><span style="color:var(--accent2);font-weight:700;">Attuale: ${curAvg}</span><span>Max: <b>${maxAvg}</b></span>`;
+
   // ── Migliori compagni ──
   const partnerStats = {};
   allMatches.forEach(m=>{
@@ -2639,9 +2654,10 @@ async function renderProfile(){
     '<span style="color:var(--muted);font-style:italic;">Premi "Genera" per un\'analisi personalizzata del tuo gioco.</span>';
 }
 
-function renderSparkline(svgId, values){
+function renderSparkline(svgId, values, color){
   const svg = document.getElementById(svgId);
   if(!svg) return;
+  color = color || 'var(--accent)';
   if(!values || values.length < 2){ svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" fill="var(--muted)" font-size="11">Dati insufficienti</text>'; return; }
   const W = svg.parentElement.offsetWidth || 300;
   const H = 60;
@@ -2660,17 +2676,17 @@ function renderSparkline(svgId, values){
   const linePath = `M${pts[0]} ` + pts.slice(1).map(p=>`L${p}`).join(' ');
   // Last dot
   const lastPt  = pts[pts.length-1].split(',');
-  const lastElo = values[values.length-1];
-  const dotCol  = lastElo >= (values[0]||ELO_START) ? 'var(--accent2)' : 'var(--red)';
+  const lastVal = values[values.length-1];
+  const dotCol  = lastVal >= (values[0]||0) ? color : '#b91c1c';
   svg.innerHTML = `
     <defs>
-      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+      <linearGradient id="sparkGrad${svgId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
       </linearGradient>
     </defs>
-    <path d="${areaPath}" fill="url(#sparkGrad)"/>
-    <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${areaPath}" fill="url(#sparkGrad${svgId})"/>
+    <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="${dotCol}" stroke="#fff" stroke-width="2"/>`;
 }
 
@@ -2735,7 +2751,8 @@ Includi: stato di forma attuale, punti di forza, aree di miglioramento, e una fr
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SB_KEY
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`
       },
       body: JSON.stringify({ prompt })
     });
@@ -2999,7 +3016,8 @@ Promise.all([
   renderPlayers();
   renderBookings();
   updateBadge();
-  recomputeSeasonIds(false); // allinea stagioni ex-post ai tornei già caricati
+  recomputeSeasonIds(false);
+  renderHome(); // mostra subito la card profilo se già loggato
 
   // Polling ogni 6 secondi per sync tra dispositivi
   setInterval(()=>{
@@ -5025,6 +5043,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.7</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.8</div>
 </body>
 </html>

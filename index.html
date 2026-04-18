@@ -766,6 +766,14 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <!-- Classifica -->
   <div class="sec-title" style="margin-top:14px;">Classifica</div>
   <div id="tdetail-rank" style="margin-bottom:18px;"></div>
+  <!-- AI Analisi torneo -->
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;">✨ Analisi AI Torneo</div>
+      <button id="tdetail-ai-btn" onclick="generateTournamentAI()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:20px;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;">✨ Genera</button>
+    </div>
+    <div id="tdetail-ai-content" style="font-size:13px;line-height:1.8;color:var(--muted);font-style:italic;">Premi "Genera" per un'analisi AI del torneo.</div>
+  </div>
   <!-- Partite + ELO -->
   <div class="sec-title">Partite & Previsioni ELO</div>
   <div id="tdetail-matches"></div>
@@ -2690,86 +2698,137 @@ function renderSparkline(svgId, values, color){
     <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="${dotCol}" stroke="#fff" stroke-width="2"/>`;
 }
 
+// ── Helper centralizzato per chiamate AI ──
+async function callAI(prompt){
+  const res = await fetch(`${SB_URL}/functions/v1/ai-proxy`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` },
+    body: JSON.stringify({ prompt })
+  });
+  if(!res.ok){ const e=await res.text(); throw new Error(`HTTP ${res.status}: ${e.slice(0,120)}`); }
+  const data = await res.json();
+  return (data.text || data.content || '').trim();
+}
+
+function formatAIText(text){
+  if(!text) return '';
+  const paras = text.split(/\n+/).filter(p=>p.trim());
+  return paras.map((p,i)=>{
+    if(i===0) return `<p style="margin:0 0 14px;line-height:1.9;color:var(--text);font-size:14px;"><span style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;color:var(--accent);float:left;line-height:.85;margin-right:5px;margin-top:3px;">${p[0]}</span>${p.slice(1)}</p>`;
+    return `<p style="margin:0 0 12px;line-height:1.85;color:var(--text);font-size:13px;">${p}</p>`;
+  }).join('');
+}
+
+function aiFooter(){
+  return `<div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;"><span style="font-size:16px;">✨</span><span style="font-size:10px;color:var(--muted);letter-spacing:.5px;">Analisi generata da Claude AI · ${new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</span></div>`;
+}
+
+let _profileMatchCount = -1;
+
 async function generateProfileAI(){
   const playerName = _profilePlayerName;
   if(!playerName) return;
-
   const btn = document.getElementById('profile-ai-btn');
   const content = document.getElementById('profile-ai-content');
-  btn.disabled = true;
-  btn.textContent = '⏳ Analisi in corso…';
-  content.innerHTML = '<span style="color:var(--muted);font-style:italic;">Il commentatore sta analizzando le tue partite…</span>';
 
-  // Raccoglie dati per il prompt
-  const { ratings, history } = computeElo('all');
-  const eloNow = (ratings[playerName]??ELO_START).toFixed(0);
-  const eloHistory = (history[playerName]||[]);
-  const eloTrend = eloHistory.length>=2
-    ? (eloHistory[eloHistory.length-1].elo - eloHistory[0].elo).toFixed(0)
-    : '0';
+  let currentMatchCount = 0;
+  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+    if(m.a.p1===playerName||m.a.p2===playerName||m.b.p1===playerName||m.b.p2===playerName) currentMatchCount++;
+  }));
 
-  const allMatches = [];
-  tournaments.forEach(t=>{
-    t.matches.filter(m=>m.done).forEach(m=>{
-      const inA=m.a.p1===playerName||m.a.p2===playerName;
-      const inB=m.b.p1===playerName||m.b.p2===playerName;
-      if(!inA&&!inB) return;
-      const won=inA?m.sa>m.sb:m.sb>m.sa, drew=m.sa===m.sb, diff=Math.abs(m.sa-m.sb);
-      const pts=drew?1:(won?(diff===1?2:3):(diff===1?1:0));
-      const partner=inA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
-      allMatches.push({won,drew,pts,diff,partner,tName:t.name,tDate:t.date.slice(0,10)});
-    });
-  });
-
-  const total=allMatches.length, wins=allMatches.filter(m=>m.won).length;
-  const draws=allMatches.filter(m=>m.drew).length, losses=total-wins-draws;
-  const avg=total>0?(allMatches.reduce((s,m)=>s+m.pts,0)/total).toFixed(2):'0';
-  const last5=allMatches.slice(-5);
-  const last5W=last5.filter(m=>m.won).length;
-  const partnerStats={};
-  allMatches.forEach(m=>{
-    if(!partnerStats[m.partner]) partnerStats[m.partner]={p:0,w:0};
-    partnerStats[m.partner].p++; if(m.won) partnerStats[m.partner].w++;
-  });
-  const bestPartner=Object.entries(partnerStats).sort((a,b)=>(b[1].w/b[1].p)-(a[1].w/a[1].p))[0];
-
-  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza il profilo del giocatore "${playerName}" e scrivi un'analisi in italiano, tono vivace e da commentatore, max 180 parole.
-
-DATI:
-- ELO attuale: ${eloNow} (trend storico: ${eloTrend>0?'+':''}${eloTrend} pt dall'inizio)
-- Partite totali: ${total} (${wins}V / ${draws}P / ${losses}S)
-- Media punti/partita: ${avg} su scala 0-3
-- Ultimi 5 match: ${last5W} vittorie su 5
-- Miglior coppia: ${bestPartner?`${bestPartner[0]} (${Math.round(bestPartner[1].w/bestPartner[1].p*100)}% win rate)`:'dati insufficienti'}
-- Partite giocate di recente: ${last5.map(m=>(m.won?'V':m.drew?'P':'S')+' '+m.tName).join(', ')||'nessuna'}
-
-Includi: stato di forma attuale, punti di forza, aree di miglioramento, e una frase finale motivazionale. Sii specifico, usa i numeri, evita frasi generiche.`;
-
-  try {
-    // Chiama la Supabase Edge Function ai-proxy
-    const res = await fetch(`${SB_URL}/functions/v1/ai-proxy`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SB_KEY,
-        'Authorization': `Bearer ${SB_KEY}`
-      },
-      body: JSON.stringify({ prompt })
-    });
-    if(!res.ok){
-      const errText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errText.slice(0,100)}`);
-    }
-    const data = await res.json();
-    const text = (data.text || data.content || 'Analisi non disponibile.').trim();
-    content.innerHTML = `<div style="line-height:1.9;color:var(--text);">${text.replace(/\n/g,'<br>')}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:10px;text-align:right;">✨ Generato da Claude AI · ${new Date().toLocaleDateString('it-IT')}</div>`;
-  } catch(e) {
-    content.innerHTML = `<div style="color:var(--red);font-size:12px;">⚠ ${e.message}<br><span style="color:var(--muted);">Assicurati che la Edge Function "ai-proxy" sia deployata su Supabase.</span></div>`;
+  if(_profileMatchCount === currentMatchCount && _profileMatchCount >= 0){
+    content.innerHTML = `<div style="padding:12px 14px;background:var(--s2);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;">ℹ️ Nessuna nuova partita — l'analisi è già aggiornata.</div>`;
+    return;
   }
 
-  btn.disabled = false;
-  btn.textContent = '✨ Rigenera';
+  btn.disabled = true; btn.textContent = '⏳…';
+  content.innerHTML = `<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi di ${currentMatchCount} partite in corso…</div>`;
+
+  const { ratings, history } = computeElo('all');
+  const eloNow = (ratings[playerName]??ELO_START).toFixed(0);
+  const eloHist = (history[playerName]||[]);
+  const eloTrend = eloHist.length>=2 ? (eloHist[eloHist.length-1].elo-eloHist[0].elo).toFixed(0) : '0';
+
+  const allM=[];
+  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+    const inA=m.a.p1===playerName||m.a.p2===playerName, inB=m.b.p1===playerName||m.b.p2===playerName;
+    if(!inA&&!inB) return;
+    const won=inA?m.sa>m.sb:m.sb>m.sa, drew=m.sa===m.sb, diff=Math.abs(m.sa-m.sb);
+    const pts=drew?1:(won?(diff===1?2:3):(diff===1?1:0));
+    const partner=inA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
+    allM.push({won,drew,pts,partner,tName:t.name});
+  }));
+
+  const total=allM.length, wins=allM.filter(m=>m.won).length, draws=allM.filter(m=>m.drew).length;
+  const avg=total>0?(allM.reduce((s,m)=>s+m.pts,0)/total).toFixed(2):'0';
+  const last5=allM.slice(-5), last5W=last5.filter(m=>m.won).length;
+  const ps={};
+  allM.forEach(m=>{ if(!ps[m.partner])ps[m.partner]={p:0,w:0}; ps[m.partner].p++; if(m.won)ps[m.partner].w++; });
+  const bp=Object.entries(ps).sort((a,b)=>(b[1].w/b[1].p)-(a[1].w/a[1].p))[0];
+
+  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza il profilo del giocatore "${playerName}" e scrivi un'analisi in italiano, tono vivace da telecronaca, massimo 200 parole. Struttura in 3 paragrafi: 1) Forma attuale e numeri chiave, 2) Punti di forza e miglior compagno, 3) Aree di miglioramento e frase motivazionale finale. Usa numeri specifici.
+
+DATI: ELO ${eloNow} (${eloTrend>0?'+':''}${eloTrend} dall'inizio) · Record ${wins}V/${draws}P/${total-wins-draws}S su ${total} partite · Media ${avg} pt/partita · Ultimi 5: ${last5.map(m=>m.won?'V':m.drew?'P':'S').join('')} (${last5W}/5 vinte) · Miglior compagno: ${bp?`${bp[0]} ${Math.round(bp[1].w/bp[1].p*100)}% vittorie`:'—'}`;
+
+  try {
+    const text = await callAI(prompt);
+    content.innerHTML = formatAIText(text) + aiFooter();
+    _profileMatchCount = currentMatchCount;
+    btn.textContent = '✓ Aggiornata'; btn.style.background='#047857';
+    setTimeout(()=>{ btn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; btn.textContent='✨ Rigenera'; btn.disabled=false; }, 2000);
+    return;
+  } catch(e) {
+    content.innerHTML = `<div style="color:var(--red);font-size:12px;padding:12px;background:rgba(185,28,28,.06);border-radius:10px;">⚠ ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.textContent='✨ Genera';
+}
+
+let _tdetailAIMatchCount = -1;
+
+async function generateTournamentAI(){
+  const t = _currentTDetailId ? tournaments.find(x=>x.id===_currentTDetailId) : null;
+  if(!t) return;
+  const btn = document.getElementById('tdetail-ai-btn');
+  const content = document.getElementById('tdetail-ai-content');
+  const done = t.matches.filter(m=>m.done);
+
+  if(_tdetailAIMatchCount === done.length && _tdetailAIMatchCount >= 0){
+    content.innerHTML = `<div style="padding:12px 14px;background:var(--s2);border-radius:12px;font-size:12px;color:var(--muted);text-align:center;">ℹ️ Nessuna nuova partita — l'analisi è già aggiornata.</div>`;
+    return;
+  }
+  if(!done.length){ content.innerHTML=`<div style="color:var(--muted);text-align:center;padding:10px;font-size:12px;">Nessuna partita completata.</div>`; return; }
+
+  btn.disabled=true; btn.textContent='⏳…';
+  content.innerHTML=`<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi di ${done.length} partite in corso…</div>`;
+
+  const stats={};
+  function ep(n){ if(!stats[n]) stats[n]={pts:0,w:0,l:0,played:0}; }
+  done.forEach(m=>{
+    [m.a.p1,m.a.p2,m.b.p1,m.b.p2].forEach(ep);
+    const diff=Math.abs(m.sa-m.sb), tA=[m.a.p1,m.a.p2], tB=[m.b.p1,m.b.p2];
+    if(m.sa===m.sb){ [...tA,...tB].forEach(n=>{stats[n].pts++;stats[n].played++;}); }
+    else if(m.sa>m.sb){ const wp=diff===1?2:3,lp=diff===1?1:0; tA.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;}); tB.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;}); }
+    else { const wp=diff===1?2:3,lp=diff===1?1:0; tB.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;}); tA.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;}); }
+  });
+  const sorted=Object.entries(stats).map(([n,s])=>({n,...s,avg:s.played?+(s.pts/s.played).toFixed(2):0})).sort((a,b)=>b.avg-a.avg||b.pts-a.pts);
+  const eloSnap=computeEloSnapshot(t.id);
+  const upsets=done.filter(m=>{ const eA=(eloSnap[m.a.p1]??1200+eloSnap[m.a.p2]??1200)/2, eB=(eloSnap[m.b.p1]??1200+eloSnap[m.b.p2]??1200)/2, pA=1/(1+Math.pow(10,(eB-eA)/400)); return (m.sa>m.sb&&pA<0.4)||(m.sb>m.sa&&pA>0.6); }).length;
+
+  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza questo torneo e scrivi un resoconto in italiano, tono vivace da telecronaca, massimo 200 parole. 3 paragrafi: 1) Andamento generale, 2) Protagonisti — chi ha brillato e chi ha deluso, 3) Momenti chiave e verdetto. Usa numeri specifici.
+
+TORNEO "${t.name}" (${t.date?.slice(0,10)||'—'}): ${done.length}/${t.matches.length} partite giocate · Classifica: ${sorted.slice(0,4).map((s,i)=>`${i+1}.${s.n}(${s.avg}avg,${s.w}V/${s.l}S)`).join(' ')} · Sorprese ELO: ${upsets} · Giocatori: ${t.players.join(', ')}`;
+
+  try {
+    const text = await callAI(prompt);
+    content.innerHTML = formatAIText(text) + aiFooter();
+    _tdetailAIMatchCount = done.length;
+    btn.textContent='✓ Aggiornata'; btn.style.background='#047857';
+    setTimeout(()=>{ btn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; btn.textContent='✨ Rigenera'; btn.disabled=false; }, 2000);
+    return;
+  } catch(e) {
+    content.innerHTML=`<div style="color:var(--red);font-size:12px;padding:12px;background:rgba(185,28,28,.06);border-radius:10px;">⚠ ${e.message}</div>`;
+  }
+  btn.disabled=false; btn.textContent='✨ Genera';
 }
 
 // ═══════════════════════════════════
@@ -5043,6 +5102,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.8</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.9</div>
 </body>
 </html>

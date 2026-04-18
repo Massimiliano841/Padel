@@ -432,8 +432,8 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   }
   .mobile-header-right{display:flex;align-items:center;gap:8px;}
 
-  /* Page padding con bottom nav */
-  .page{padding:14px 12px calc(80px + env(safe-area-inset-bottom));max-width:100%;}
+  /* Page padding senza bottom nav */
+  .page{padding:14px 12px 30px;max-width:100%;}
 
   /* Giocatori */
   .player-item{flex-wrap:wrap;gap:6px;}
@@ -486,7 +486,10 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- MOBILE HEADER (solo smartphone) -->
 <div class="mobile-header" id="mobileHeader" style="display:none;">
-  <div class="mobile-header-logo">PADEL PRO</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button id="mobileBackBtn" onclick="showPage('home')" style="display:none;background:none;border:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--accent);padding:4px 8px 4px 0;letter-spacing:.5px;">← Home</button>
+    <div class="mobile-header-logo" onclick="showPage('home')" style="cursor:pointer;">PADEL PRO</div>
+  </div>
   <div class="mobile-header-right">
     <div id="fb-status-mobile" style="font-size:13px;">🔄</div>
     <div id="user-chip-mobile" class="user-chip" style="display:none;"></div>
@@ -545,37 +548,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 </div>
 
 <!-- BOTTOM NAV (solo mobile) -->
-<nav class="bottom-nav" id="bottomNav">
-  <button class="bn-item active" onclick="showPage('home')" id="bn-home">
-    <span class="bn-icon">🏠</span>Home
-  </button>
-  <button class="bn-item" onclick="showPage('matches')" id="bn-matches">
-    <span class="bn-icon">🎾</span>Partite
-    <span class="badge" id="badge-matches-mobile">—</span>
-  </button>
-  <button class="bn-item" onclick="showPage('rank')" id="bn-rank">
-    <span class="bn-icon">🏆</span>Classifica
-  </button>
-  <button class="bn-item" onclick="showPage('newt')" id="bn-newt">
-    <span class="bn-icon">➕</span>Torneo
-  </button>
-  <button class="bn-item" onclick="toggleMobileMenu()" id="bn-more">
-    <span class="bn-icon">☰</span>Altro
-  </button>
-</nav>
-
-<!-- MOBILE MORE MENU -->
-<div id="mobileMoreMenu" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:59;background:rgba(240,242,247,.98);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:8px 12px;flex-direction:column;gap:4px;overflow-y:auto;max-height:75vh;">
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('home');closeMobileMenu();" id="bn-home-menu">🏠 Home</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('bookings');closeMobileMenu();" id="bn-bookings">📅 Prenotazioni</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('elo');closeMobileMenu();" id="bn-elo">⚡ ELO</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('tlist');closeMobileMenu();" id="bn-tlist">📋 Tornei</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('players');closeMobileMenu();" id="bn-players">👤 Giocatori</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('seasons');closeMobileMenu();" id="bn-seasons">🗓 Stagioni</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('export');closeMobileMenu();" id="bn-export">📊 Export</button>
-  <button class="bn-item" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;" onclick="showPage('log');closeMobileMenu();" id="bn-log">📜 Log</button>
-  <button class="bn-item" id="bn-users-mobile" style="width:100%;flex-direction:row;justify-content:flex-start;padding:12px 10px;border-radius:10px;font-size:14px;letter-spacing:.5px;gap:10px;display:none;" onclick="showPage('users');closeMobileMenu();">👑 Utenti</button>
-</div>
+<!-- (bottom nav rimossa — navigazione via Home page) -->
 
 <!-- LOADING OVERLAY -->
 <div id="fb-loading-overlay" style="display:flex;position:fixed;inset:0;background:#f0f2f7;z-index:200;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:16px;">
@@ -2525,30 +2498,11 @@ function initMobileLayout(){
   };
   applyLayout();
   window.addEventListener('resize', applyLayout);
-  // Chiudi il menu mobile cliccando fuori
-  document.addEventListener('click', e=>{
-    const menu = document.getElementById('mobileMoreMenu');
-    const btn  = document.getElementById('bn-more');
-    if(menu && menu.style.display==='flex' && !menu.contains(e.target) && !btn?.contains(e.target)){
-      menu.style.display='none';
-    }
-  });
 }
 
-function toggleMobileMenu(){
-  const m = document.getElementById('mobileMoreMenu');
-  m.style.display = m.style.display==='flex' ? 'none' : 'flex';
-}
-function closeMobileMenu(){
-  document.getElementById('mobileMoreMenu').style.display='none';
-}
-
-// Sincronizza badge partite anche nella bottom nav
-function syncMobileBadge(){
-  const src = document.getElementById('badge-matches');
-  const dst = document.getElementById('badge-matches-mobile');
-  if(src && dst) dst.textContent = src.textContent;
-}
+function toggleMobileMenu(){ /* bottom nav rimossa */ }
+function closeMobileMenu(){ /* bottom nav rimossa */ }
+function syncMobileBadge(){ /* badge mobile rimosso */ }
 
 // ═══════════════════════════════════
 //  PAGES
@@ -2574,11 +2528,17 @@ function showPage(name){
     if(homeBtn)  homeBtn.classList.add('active');
     if(sepEl)    sepEl.style.display = 'none';
     if(labelEl)  labelEl.style.display = 'none';
+    // Nascondi ← Home sull'header mobile quando sei già a Home
+    const backBtn = document.getElementById('mobileBackBtn');
+    if(backBtn) backBtn.style.display = 'none';
     renderHome();
   } else {
     if(homeBtn)  homeBtn.classList.remove('active');
     if(sepEl)    sepEl.style.display = '';
     if(labelEl){ labelEl.style.display = ''; labelEl.textContent = PAGE_LABELS[name]||name; }
+    // Mostra ← Home sull'header mobile su tutte le altre pagine
+    const backBtn = document.getElementById('mobileBackBtn');
+    if(backBtn) backBtn.style.display = '';
   }
 
   // Bottom nav
@@ -4656,6 +4616,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.1</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.2</div>
 </body>
 </html>

@@ -2653,9 +2653,27 @@ async function renderProfile(){
       </div>
     </div>`;
 
-  // Reset AI
-  document.getElementById('profile-ai-content').innerHTML =
-    '<span style="color:var(--muted);font-style:italic;">Premi "Genera" per un\'analisi personalizzata del tuo gioco.</span>';
+  // Carica analisi AI salvata (se esiste e corrisponde alle partite chiuse attuali)
+  const aiBtn     = document.getElementById('profile-ai-btn');
+  const aiContent = document.getElementById('profile-ai-content');
+  const closedCount = closedMatchCount(playerName);
+  loadAI(aiPlayerKey(playerName)).then(saved=>{
+    if(saved?.html && saved?.matchCount === closedCount){
+      // Analisi già aggiornata — mostrala e blocca il pulsante
+      if(aiContent) aiContent.innerHTML = saved.html;
+      if(aiBtn){ aiBtn.style.background='#6b7280'; aiBtn.textContent='✓ Aggiornata'; aiBtn.disabled=true; aiBtn.title='Nessuna nuova partita nei tornei chiusi'; }
+    } else if(saved?.html){
+      // Analisi esistente ma ci sono nuove partite chiuse — mostrarla ma abilitare rigenera
+      if(aiContent) aiContent.innerHTML = saved.html + `<div style="margin-top:10px;padding:8px 12px;background:rgba(29,78,216,.06);border-radius:10px;font-size:11px;color:var(--accent);">ℹ️ Ci sono nuove partite nei tornei chiusi — puoi rigenerare l'analisi.</div>`;
+      if(aiBtn){ aiBtn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; aiBtn.textContent='✨ Rigenera'; aiBtn.disabled=false; }
+    } else {
+      // Nessuna analisi
+      if(aiContent) aiContent.innerHTML = closedCount > 0
+        ? '<span style="color:var(--muted);font-style:italic;">Premi "Genera" per la tua analisi personalizzata basata sui tornei chiusi.</span>'
+        : '<div style="padding:10px 12px;background:var(--s2);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;">ℹ️ L\'analisi AI si basa solo sulle partite di <b>tornei chiusi</b>. Chiudi almeno un torneo per generarla.</div>';
+      if(aiBtn){ aiBtn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; aiBtn.textContent='✨ Genera'; aiBtn.disabled=closedCount===0; }
+    }
+  });
 }
 
 function renderSparkline(svgId, values, color){
@@ -2762,46 +2780,85 @@ function aiFooter(){
   return `<div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;"><span style="font-size:16px;">✨</span><span style="font-size:10px;color:var(--muted);letter-spacing:.5px;">Analisi generata da Claude AI · ${new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</span></div>`;
 }
 
-let _profileMatchCount = -1;
+// ─────────────────────────────────────────────
+//  AI PERSISTENTE — salva/carica da Supabase
+// ─────────────────────────────────────────────
 
+// Chiave Supabase per analisi torneo
+function aiTournamentKey(tId){ return `ai_tournament_${tId}`; }
+// Chiave Supabase per analisi giocatore (include conteggio partite chiuse)
+function aiPlayerKey(name){ return `ai_player_${name.toLowerCase().replace(/\s+/g,'_')}`; }
+
+// Conta partite completate SOLO nei tornei chiusi per un giocatore
+function closedMatchCount(playerName){
+  let count = 0;
+  tournaments.forEach(t=>{
+    if(!t.closed) return; // ignora tornei aperti
+    t.matches.filter(m=>m.done).forEach(m=>{
+      if(m.a.p1===playerName||m.a.p2===playerName||m.b.p1===playerName||m.b.p2===playerName) count++;
+    });
+  });
+  return count;
+}
+
+// Carica analisi salvata: { html, matchCount, generatedAt }
+async function loadAI(key){ try { return await sbGet(key); } catch(e){ return null; } }
+// Salva analisi
+async function saveAI(key, obj){ try { await sbSet(key, obj); } catch(e){} }
+
+// ── PROFILO GIOCATORE ──
 async function generateProfileAI(){
   const playerName = _profilePlayerName;
   if(!playerName) return;
-  const btn = document.getElementById('profile-ai-btn');
+  const btn     = document.getElementById('profile-ai-btn');
   const content = document.getElementById('profile-ai-content');
 
-  let currentMatchCount = 0;
-  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
-    if(m.a.p1===playerName||m.a.p2===playerName||m.b.p1===playerName||m.b.p2===playerName) currentMatchCount++;
-  }));
+  // Solo partite di tornei CHIUSI
+  const closedCount = closedMatchCount(playerName);
 
-  if(_profileMatchCount === currentMatchCount && _profileMatchCount >= 0){
-    // Mostra il messaggio temporaneo senza cancellare il testo generato
-    const notice = document.createElement('div');
-    notice.style.cssText = 'padding:10px 14px;background:var(--s2);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;margin-bottom:12px;';
-    notice.textContent = 'ℹ️ Nessuna nuova partita da quando hai generato l\'ultima analisi.';
-    content.insertBefore(notice, content.firstChild);
-    setTimeout(()=>notice.remove(), 3000);
+  // Carica analisi salvata
+  const key = aiPlayerKey(playerName);
+  const saved = await loadAI(key);
+
+  // Se esiste un'analisi salvata con lo stesso numero di partite → mostrarla, non rigenerare
+  if(saved?.html && saved?.matchCount === closedCount){
+    content.innerHTML = saved.html;
+    btn.style.background = '#6b7280';
+    btn.textContent = '✓ Analisi aggiornata';
+    btn.disabled = true;
+    btn.title = 'Nessuna nuova partita nei tornei chiusi — analisi già aggiornata';
+    return;
+  }
+
+  // Nessuna partita chiusa disponibile
+  if(closedCount === 0){
+    content.innerHTML = `<div style="padding:12px;background:var(--s2);border-radius:12px;font-size:13px;color:var(--muted);text-align:center;">
+      ℹ️ L'analisi AI si basa solo sulle partite di <b>tornei chiusi</b>.<br>Chiudi almeno un torneo per generare l'analisi.
+    </div>`;
     return;
   }
 
   btn.disabled = true; btn.textContent = '⏳…';
-  content.innerHTML = `<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi di ${currentMatchCount} partite in corso…</div>`;
+  content.innerHTML = `<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi di ${closedCount} partite (tornei chiusi) in corso…</div>`;
 
+  // Dati solo da tornei chiusi
   const { ratings, history } = computeElo('all');
-  const eloNow = (ratings[playerName]??ELO_START).toFixed(0);
+  const eloNow  = (ratings[playerName]??ELO_START).toFixed(0);
   const eloHist = (history[playerName]||[]);
   const eloTrend = eloHist.length>=2 ? (eloHist[eloHist.length-1].elo-eloHist[0].elo).toFixed(0) : '0';
 
-  const allM=[];
-  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
-    const inA=m.a.p1===playerName||m.a.p2===playerName, inB=m.b.p1===playerName||m.b.p2===playerName;
-    if(!inA&&!inB) return;
-    const won=inA?m.sa>m.sb:m.sb>m.sa, drew=m.sa===m.sb, diff=Math.abs(m.sa-m.sb);
-    const pts=drew?1:(won?(diff===1?2:3):(diff===1?1:0));
-    const partner=inA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
-    allM.push({won,drew,pts,partner,tName:t.name});
-  }));
+  const allM = [];
+  tournaments.forEach(t=>{
+    if(!t.closed) return;
+    t.matches.filter(m=>m.done).forEach(m=>{
+      const inA=m.a.p1===playerName||m.a.p2===playerName, inB=m.b.p1===playerName||m.b.p2===playerName;
+      if(!inA&&!inB) return;
+      const won=inA?m.sa>m.sb:m.sb>m.sa, diff=Math.abs(m.sa-m.sb);
+      const pts=won?(diff===1?2:3):(diff===1?1:0);
+      const partner=inA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
+      allM.push({won,pts,partner,tName:t.name});
+    });
+  });
 
   const total=allM.length, wins=allM.filter(m=>m.won).length;
   const avg=total>0?(allM.reduce((s,m)=>s+m.pts,0)/total).toFixed(2):'0';
@@ -2810,87 +2867,104 @@ async function generateProfileAI(){
   allM.forEach(m=>{ if(!ps[m.partner])ps[m.partner]={p:0,w:0}; ps[m.partner].p++; if(m.won)ps[m.partner].w++; });
   const bp=Object.entries(ps).sort((a,b)=>(b[1].w/b[1].p)-(a[1].w/a[1].p))[0];
 
-  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza il profilo del giocatore "${playerName}" e scrivi un'analisi in italiano, tono vivace da telecronaca, massimo 200 parole. Struttura in 3 paragrafi: 1) Forma attuale e numeri chiave, 2) Punti di forza e miglior compagno, 3) Aree di miglioramento e frase motivazionale finale. Usa numeri specifici.
+  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza il profilo di "${playerName}" e scrivi in italiano, tono vivace da telecronaca, max 200 parole. Usa titoli ## per 3 paragrafi: Forma e numeri chiave, Punti di forza, Aree di miglioramento e frase motivazionale. Usa solo i numeri forniti.
 
-DATI: ELO ${eloNow} (${eloTrend>0?'+':''}${eloTrend} dall'inizio) · Record ${wins}V/${total-wins}S su ${total} partite · Media ${avg} pt/partita · Ultimi 5: ${last5.map(m=>m.won?'V':m.drew?'P':'S').join('')} (${last5W}/5 vinte) · Miglior compagno: ${bp?`${bp[0]} ${Math.round(bp[1].w/bp[1].p*100)}% vittorie`:'—'}`;
+DATI (solo tornei chiusi): ELO ${eloNow} (${eloTrend>0?'+':''}${eloTrend} dall'inizio) · ${wins}V/${total-wins}S su ${total} partite · Media ${avg} pt/partita · Ultimi 5: ${last5.map(m=>m.won?'V':'S').join('')} (${last5W}/5) · Miglior compagno: ${bp?`${bp[0]} — ${Math.round(bp[1].w/bp[1].p*100)}% vittorie insieme`:'—'}`;
 
   try {
     const text = await callAI(prompt);
-    content.innerHTML = formatAIText(text) + aiFooter();
-    _profileMatchCount = currentMatchCount;
-    btn.textContent = '✓ Aggiornata'; btn.style.background='#047857';
-    setTimeout(()=>{ btn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; btn.textContent='✨ Rigenera'; btn.disabled=false; }, 2000);
+    const html  = formatAIText(text) + aiFooter();
+    content.innerHTML = html;
+    // Salva permanentemente
+    await saveAI(key, { html, matchCount: closedCount, generatedAt: new Date().toISOString() });
+    btn.textContent = '✓ Salvata'; btn.style.background='#047857';
+    setTimeout(()=>{ btn.style.background='#6b7280'; btn.textContent='✓ Aggiornata'; btn.disabled=true; btn.title='Nessuna nuova partita nei tornei chiusi'; }, 2000);
     return;
   } catch(e) {
     content.innerHTML = `<div style="color:var(--red);font-size:12px;padding:12px;background:rgba(185,28,28,.06);border-radius:10px;">⚠ ${e.message}</div>`;
+    btn.disabled=false; btn.textContent='✨ Genera';
   }
-  btn.disabled=false; btn.textContent='✨ Genera';
 }
 
-let _tdetailAIMatchCount = -1;
-
+// ── TORNEO ──
 async function generateTournamentAI(){
   const t = _currentTDetailId ? tournaments.find(x=>x.id===_currentTDetailId) : null;
   if(!t) return;
-  const btn = document.getElementById('tdetail-ai-btn');
+  const btn     = document.getElementById('tdetail-ai-btn');
   const content = document.getElementById('tdetail-ai-content');
-  const done = t.matches.filter(m=>m.done);
 
-  if(_tdetailAIMatchCount === done.length && _tdetailAIMatchCount >= 0){
-    const notice = document.createElement('div');
-    notice.style.cssText = 'padding:10px 14px;background:var(--s2);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;margin-bottom:12px;';
-    notice.textContent = 'ℹ️ Nessuna nuova partita da quando hai generato l\'ultima analisi.';
-    content.insertBefore(notice, content.firstChild);
-    setTimeout(()=>notice.remove(), 3000);
+  // Solo tornei chiusi
+  if(!t.closed){
+    content.innerHTML = `<div style="padding:12px;background:var(--s2);border-radius:12px;font-size:13px;color:var(--muted);text-align:center;">
+      🔒 L'analisi AI è disponibile solo per i <b>tornei chiusi</b>.<br>Chiudi il torneo per sbloccarla.
+    </div>`;
+    btn.style.display = 'none';
     return;
   }
-  if(!done.length){ content.innerHTML=`<div style="color:var(--muted);text-align:center;padding:10px;font-size:12px;">Nessuna partita completata.</div>`; return; }
+
+  const key   = aiTournamentKey(t.id);
+  const saved = await loadAI(key);
+
+  // Torneo chiuso → analisi permanente, non si rigenera mai
+  if(saved?.html){
+    content.innerHTML = saved.html;
+    btn.style.background = '#6b7280';
+    btn.textContent = '✓ Analisi definitiva';
+    btn.disabled = true;
+    btn.title = 'Il torneo è chiuso — l\'analisi è definitiva';
+    return;
+  }
+
+  const done = t.matches.filter(m=>m.done);
+  if(!done.length){
+    content.innerHTML = `<div style="color:var(--muted);text-align:center;padding:10px;font-size:12px;">Nessuna partita completata.</div>`;
+    return;
+  }
 
   btn.disabled=true; btn.textContent='⏳…';
-  content.innerHTML=`<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi di ${done.length} partite in corso…</div>`;
+  content.innerHTML = `<div style="color:var(--muted);font-style:italic;font-size:13px;text-align:center;padding:16px 0;">🎾 Analisi definitiva di ${done.length} partite in corso…</div>`;
 
   const stats={};
   function ep(n){ if(!stats[n]) stats[n]={pts:0,w:0,l:0,played:0}; }
   done.forEach(m=>{
     [m.a.p1,m.a.p2,m.b.p1,m.b.p2].forEach(ep);
     const diff=Math.abs(m.sa-m.sb), tA=[m.a.p1,m.a.p2], tB=[m.b.p1,m.b.p2];
-    if(m.sa===m.sb){ [...tA,...tB].forEach(n=>{stats[n].pts++;stats[n].played++;}); }
-    else if(m.sa>m.sb){ const wp=diff===1?2:3,lp=diff===1?1:0; tA.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;}); tB.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;}); }
+    if(m.sa>m.sb){ const wp=diff===1?2:3,lp=diff===1?1:0; tA.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;}); tB.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;}); }
     else { const wp=diff===1?2:3,lp=diff===1?1:0; tB.forEach(n=>{stats[n].pts+=wp;stats[n].w++;stats[n].played++;}); tA.forEach(n=>{stats[n].pts+=lp;stats[n].l++;stats[n].played++;}); }
   });
   const sorted=Object.entries(stats).map(([n,s])=>({n,...s,avg:s.played?+(s.pts/s.played).toFixed(2):0})).sort((a,b)=>b.avg-a.avg||b.pts-a.pts);
   const eloSnap=computeEloSnapshot(t.id);
-  const upsets = done.filter(m=>{
-    const eA = ((eloSnap[m.a.p1]??1200) + (eloSnap[m.a.p2]??1200)) / 2;
-    const eB = ((eloSnap[m.b.p1]??1200) + (eloSnap[m.b.p2]??1200)) / 2;
-    const pA = 1 / (1 + Math.pow(10, (eB - eA) / 400));
-    return (m.sa > m.sb && pA < 0.45) || (m.sb > m.sa && pA > 0.55);
+  const upsets=done.filter(m=>{
+    const eA=((eloSnap[m.a.p1]??1200)+(eloSnap[m.a.p2]??1200))/2;
+    const eB=((eloSnap[m.b.p1]??1200)+(eloSnap[m.b.p2]??1200))/2;
+    const pA=1/(1+Math.pow(10,(eB-eA)/400));
+    return (m.sa>m.sb&&pA<0.45)||(m.sb>m.sa&&pA>0.55);
   }).length;
 
-  const prompt = `Sei un commentatore sportivo esperto di padel. Analizza questo torneo e scrivi un resoconto in italiano, tono vivace da telecronaca, massimo 200 parole. Usa titoli H2 (##) per i 3 paragrafi: Andamento generale, Protagonisti, Momenti chiave e verdetto. Usa i numeri esatti forniti, non inventare statistiche.
+  const prompt = `Sei un commentatore sportivo esperto di padel. Scrivi il resoconto definitivo di questo torneo in italiano, tono vivace da telecronaca, max 200 parole. Usa titoli ## per 3 paragrafi: Andamento generale, Protagonisti, Momenti chiave e verdetto. Usa solo i numeri forniti.
 
-# Torneo "${t.name}"
+# Torneo "${t.name}" — Resoconto Definitivo
 DATI:
-- Partite giocate: ${done.length}/${t.matches.length}
-- Classifica: ${sorted.slice(0,4).map((s,i)=>`${i+1}. ${s.n} — avg ${s.avg}, ${s.w}V/${s.l}S su ${s.played} partite`).join(' | ')}
-- Sorprese ELO (sfavorito che ha vinto): ${upsets} su ${done.length}
+- Partite: ${done.length}/${t.matches.length} completate
+- Classifica: ${sorted.slice(0,4).map((s,i)=>`${i+1}. ${s.n} (avg ${s.avg}, ${s.w}V/${s.l}S su ${s.played} partite)`).join(' | ')}
+- Sorprese ELO: ${upsets} su ${done.length}
 - Giocatori: ${t.players.join(', ')}`;
 
   try {
     const text = await callAI(prompt);
-    content.innerHTML = formatAIText(text) + aiFooter();
-    _tdetailAIMatchCount = done.length;
-    btn.textContent='✓ Aggiornata'; btn.style.background='#047857';
-    setTimeout(()=>{ btn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; btn.textContent='✨ Rigenera'; btn.disabled=false; }, 2000);
+    const html  = formatAIText(text) + aiFooter();
+    content.innerHTML = html;
+    // Salva permanentemente — torneo chiuso = analisi definitiva
+    await saveAI(key, { html, generatedAt: new Date().toISOString() });
+    btn.textContent='✓ Salvata'; btn.style.background='#047857';
+    setTimeout(()=>{ btn.style.background='#6b7280'; btn.textContent='✓ Analisi definitiva'; btn.disabled=true; btn.title='Analisi definitiva salvata'; }, 2000);
     return;
-  } catch(e) {
+  } catch(e){
     content.innerHTML=`<div style="color:var(--red);font-size:12px;padding:12px;background:rgba(185,28,28,.06);border-radius:10px;">⚠ ${e.message}</div>`;
+    btn.disabled=false; btn.textContent='✨ Genera';
   }
-  btn.disabled=false; btn.textContent='✨ Genera';
 }
 
-// ═══════════════════════════════════
-//  BACKUP & RESTORE
 // ═══════════════════════════════════
 async function doBackup(){
   const btn = document.getElementById('backupBtn');
@@ -4433,6 +4507,25 @@ function renderTournamentDetail(){
   document.getElementById('tdetail-meta').textContent =
     `${fmtDate(t.date)} · ${t.players.length} giocatori · ${done}/${total} partite${season?' · '+season.name:''}`;
 
+  // ── Carica analisi AI salvata (o mostra stato corretto) ──
+  const aiBtn     = document.getElementById('tdetail-ai-btn');
+  const aiContent = document.getElementById('tdetail-ai-content');
+  if(aiBtn) aiBtn.style.display = '';
+  if(!t.closed){
+    if(aiContent) aiContent.innerHTML = `<div style="padding:10px 12px;background:var(--s2);border-radius:10px;font-size:12px;color:var(--muted);text-align:center;">🔒 L'analisi AI è disponibile solo per i <b>tornei chiusi</b>.</div>`;
+    if(aiBtn){ aiBtn.style.display='none'; }
+  } else {
+    loadAI(aiTournamentKey(t.id)).then(saved=>{
+      if(saved?.html){
+        if(aiContent) aiContent.innerHTML = saved.html;
+        if(aiBtn){ aiBtn.style.background='#6b7280'; aiBtn.textContent='✓ Analisi definitiva'; aiBtn.disabled=true; aiBtn.title='Analisi definitiva salvata'; }
+      } else {
+        if(aiContent) aiContent.innerHTML = '<span style="color:var(--muted);font-style:italic;">Premi "Genera" per l\'analisi definitiva del torneo.</span>';
+        if(aiBtn){ aiBtn.style.background='linear-gradient(135deg,var(--accent),var(--accent2))'; aiBtn.textContent='✨ Genera'; aiBtn.disabled=false; }
+      }
+    });
+  }
+
   // ── Classifica ──
   const stats={};
   function ep(n){ if(!stats[n]) stats[n]={name:n,pts:0,w:0,l:0,d:0,played:0}; }
@@ -5160,6 +5253,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.2</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.3</div>
 </body>
 </html>

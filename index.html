@@ -1123,7 +1123,8 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
 
 <!-- ════ PROFILO ════ -->
 <div class="page" id="page-profile">
-  <div style="padding-top:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+  <!-- Header fisso -->
+  <div style="padding-top:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
     <div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,8vw,42px);font-weight:800;letter-spacing:4px;line-height:1;" id="profile-name">PROFILO</div>
       <div style="color:var(--muted);font-size:12px;margin-top:4px;" id="profile-sub"></div>
@@ -1131,58 +1132,83 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <div id="profile-avatar" style="width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:#fff;flex-shrink:0;margin-top:4px;"></div>
   </div>
 
-  <!-- Stats cards -->
-  <div id="profile-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;"></div>
-
-  <!-- ELO Sparkline -->
-  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">⚡ Storico ELO</div>
-    <div id="profile-elo-current" style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;color:var(--accent);margin-bottom:4px;"></div>
-    <svg id="profile-sparkline" width="100%" height="60" style="display:block;margin-bottom:4px;"></svg>
-    <div id="profile-elo-range" style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;"></div>
+  <!-- Pill tabs -->
+  <div class="pills" style="margin-bottom:18px;">
+    <button class="pill active" id="ptab-summary"  onclick="setProfileTab('summary',this)">📊 Riepilogo</button>
+    <button class="pill"        id="ptab-history"  onclick="setProfileTab('history',this)">📋 Storico</button>
+    <button class="pill"        id="ptab-h2h"      onclick="setProfileTab('h2h',this)">⚔️ Testa a Testa</button>
   </div>
 
-  <!-- Forma recente -->
-  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🔥 Forma recente — ultimi 10 match</div>
-    <div id="profile-form" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>
-    <div id="profile-form-stats" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Media pt/partita nel tempo</div>
-    <svg id="profile-avg-sparkline" width="100%" height="50" style="display:block;margin-bottom:4px;"></svg>
-    <div id="profile-avg-range" style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;"></div>
-  </div>
+  <!-- ── TAB: RIEPILOGO ── -->
+  <div id="profile-tab-summary">
+    <div id="profile-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;"></div>
 
-  <!-- Compagni e avversari -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">🤝 Migliori compagni</div>
-      <div id="profile-best-partners" style="font-size:12px;"></div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">⚡ Storico ELO</div>
+      <div id="profile-elo-current" style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;color:var(--accent);margin-bottom:4px;"></div>
+      <svg id="profile-sparkline" width="100%" height="60" style="display:block;margin-bottom:4px;"></svg>
+      <div id="profile-elo-range" style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;"></div>
     </div>
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">⚔️ Avversari</div>
-      <div id="profile-opponents" style="font-size:12px;"></div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🔥 Forma recente — ultimi 10 match</div>
+      <div id="profile-form" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;"></div>
+      <div id="profile-form-stats" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Media pt/partita nel tempo</div>
+      <svg id="profile-avg-sparkline" width="100%" height="50" style="display:block;margin-bottom:4px;"></svg>
+      <div id="profile-avg-range" style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;"></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">🤝 Migliori compagni</div>
+        <div id="profile-best-partners" style="font-size:12px;"></div>
+      </div>
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">⚔️ Avversari</div>
+        <div id="profile-opponents" style="font-size:12px;"></div>
+      </div>
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">📊 vs. Media gruppo</div>
+      <div id="profile-vs-group" style="font-size:12px;"></div>
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🤝 ELO Coppie</div>
+      <div id="profile-couple-elo" style="font-size:12px;"></div>
+    </div>
+
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;">✨ Analisi AI</div>
+        <button id="profile-ai-btn" onclick="generateProfileAI()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:20px;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;">✨ Genera</button>
+      </div>
+      <div id="profile-ai-content" style="font-size:13px;line-height:1.8;color:var(--muted);font-style:italic;">Premi "Genera" per ottenere un'analisi personalizzata del tuo gioco.</div>
     </div>
   </div>
 
-  <!-- Confronto gruppo -->
-  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">📊 vs. Media gruppo</div>
-    <div id="profile-vs-group" style="font-size:12px;"></div>
-  </div>
-
-  <!-- ELO Coppie -->
-  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🤝 ELO Coppie</div>
-    <div id="profile-couple-elo" style="font-size:12px;"></div>
-  </div>
-
-  <!-- Analisi AI -->
-  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;">✨ Analisi AI</div>
-      <button id="profile-ai-btn" onclick="generateProfileAI()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:20px;padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;">✨ Genera</button>
+  <!-- ── TAB: STORICO ── -->
+  <div id="profile-tab-history" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+      <div style="font-size:12px;color:var(--muted);" id="profile-history-count"></div>
+      <select id="profile-history-filter" onchange="renderProfileHistory()" style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--s1);color:var(--text);">
+        <option value="all">Tutti i tornei</option>
+      </select>
     </div>
-    <div id="profile-ai-content" style="font-size:13px;line-height:1.8;color:var(--muted);font-style:italic;">Premi "Genera" per ottenere un'analisi personalizzata del tuo gioco.</div>
+    <div id="profile-history-list"></div>
+  </div>
+
+  <!-- ── TAB: TESTA A TESTA ── -->
+  <div id="profile-tab-h2h" style="display:none;">
+    <div style="margin-bottom:14px;">
+      <label style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;">Scegli avversario</label>
+      <select id="profile-h2h-select" onchange="renderProfileH2H()" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--s1);color:var(--text);font-size:14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;">
+        <option value="">— seleziona —</option>
+      </select>
+    </div>
+    <div id="profile-h2h-content"></div>
   </div>
 </div>
 
@@ -2595,6 +2621,209 @@ function closeEloDetail(){
 // ═══════════════════════════════════
 //  PROFILO GIOCATORE
 // ═══════════════════════════════════
+// ── PROFILO: gestione tab ──
+let _profileTab = 'summary';
+
+function setProfileTab(tab, btn){
+  _profileTab = tab;
+  document.querySelectorAll('#ptab-summary,#ptab-history,#ptab-h2h').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('profile-tab-summary').style.display = tab==='summary' ? '' : 'none';
+  document.getElementById('profile-tab-history').style.display = tab==='history' ? '' : 'none';
+  document.getElementById('profile-tab-h2h').style.display     = tab==='h2h'     ? '' : 'none';
+  if(tab==='history') renderProfileHistory();
+  if(tab==='h2h')     renderProfileH2H();
+}
+
+function renderProfileHistory(){
+  const playerName = _profilePlayerName;
+  if(!playerName) return;
+
+  // Popola filtro tornei
+  const sel = document.getElementById('profile-history-filter');
+  if(sel){
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">Tutti i tornei</option>' +
+      tournaments.filter(t=>t.matches.some(m=>m.done&&(m.a.p1===playerName||m.a.p2===playerName||m.b.p1===playerName||m.b.p2===playerName)))
+        .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+        .map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+    if(cur) sel.value = cur;
+  }
+  const filterT = sel?.value || 'all';
+
+  // Raccoglie tutte le partite del giocatore
+  const rows = [];
+  tournaments.forEach(t=>{
+    if(filterT!=='all' && t.id!==filterT) return;
+    t.matches.filter(m=>m.done).forEach(m=>{
+      const inA = m.a.p1===playerName||m.a.p2===playerName;
+      const inB = m.b.p1===playerName||m.b.p2===playerName;
+      if(!inA&&!inB) return;
+      const won = inA ? m.sa>m.sb : m.sb>m.sa;
+      const diff = Math.abs(m.sa-m.sb);
+      const pts = won?(diff===1?2:3):(diff===1?1:0);
+      const partner = inA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
+      const opps = inA?[m.b.p1,m.b.p2]:[m.a.p1,m.a.p2];
+      const score = inA?`${m.sa}-${m.sb}`:`${m.sb}-${m.sa}`;
+      rows.push({won, pts, partner, opps, score, tName:t.name, tDate:t.date, tId:t.id, tClosed:t.closed});
+    });
+  });
+  rows.sort((a,b)=>(b.tDate||'').localeCompare(a.tDate||''));
+
+  document.getElementById('profile-history-count').textContent = `${rows.length} partite`;
+
+  if(!rows.length){
+    document.getElementById('profile-history-list').innerHTML = '<div class="empty-state">Nessuna partita trovata.</div>';
+    return;
+  }
+
+  // Raggruppa per torneo
+  const byT = {};
+  rows.forEach(r=>{ if(!byT[r.tName]) byT[r.tName]={tName:r.tName,tDate:r.tDate,closed:r.tClosed,rows:[]}; byT[r.tName].rows.push(r); });
+
+  let html = '';
+  Object.values(byT).forEach(g=>{
+    const gWins = g.rows.filter(r=>r.won).length;
+    const gPts  = g.rows.reduce((s,r)=>s+r.pts,0);
+    const gAvg  = g.rows.length ? (gPts/g.rows.length).toFixed(2) : '—';
+    html += `<div style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;">${g.tName}${g.closed?' <span style="font-size:10px;color:var(--muted);">✓ chiuso</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted);">${gWins}V/${g.rows.length-gWins}S · avg ${gAvg}</div>
+      </div>`;
+    g.rows.forEach(r=>{
+      const col = r.won ? '#047857' : 'var(--red)';
+      const esito = r.won ? 'V' : 'S';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;flex-shrink:0;">${esito}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;">con ${r.partner} <span style="color:var(--muted);font-weight:400;">vs</span> ${r.opps.join(' & ')}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--accent);">${r.score}</div>
+          <div style="font-size:10px;color:${col};font-weight:700;">${r.pts} pt</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('profile-history-list').innerHTML = html;
+}
+
+function renderProfileH2H(){
+  const playerName = _profilePlayerName;
+  if(!playerName) return;
+
+  // Popola select avversari
+  const sel = document.getElementById('profile-h2h-select');
+  const opponents = new Set();
+  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+    const inA=m.a.p1===playerName||m.a.p2===playerName, inB=m.b.p1===playerName||m.b.p2===playerName;
+    if(inA){ opponents.add(m.b.p1); opponents.add(m.b.p2); }
+    if(inB){ opponents.add(m.a.p1); opponents.add(m.a.p2); }
+  }));
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— seleziona —</option>' +
+    [...opponents].sort().map(o=>`<option value="${o}">${o}</option>`).join('');
+  if(cur) sel.value = cur;
+
+  const opp = sel.value;
+  const content = document.getElementById('profile-h2h-content');
+  if(!opp){ content.innerHTML = ''; return; }
+
+  // Partite in cui entrambi hanno giocato (su lati opposti)
+  const matches = [];
+  tournaments.forEach(t=>t.matches.filter(m=>m.done).forEach(m=>{
+    const myA  = m.a.p1===playerName||m.a.p2===playerName;
+    const myB  = m.b.p1===playerName||m.b.p2===playerName;
+    const oppA = m.a.p1===opp||m.a.p2===opp;
+    const oppB = m.b.p1===opp||m.b.p2===opp;
+    // Stesso lato: non conta come H2H diretto
+    if((myA&&oppA)||(myB&&oppB)) return;
+    if(!(myA||myB)||!(oppA||oppB)) return;
+    const won = myA ? m.sa>m.sb : m.sb>m.sa;
+    const diff = Math.abs(m.sa-m.sb);
+    const pts  = won?(diff===1?2:3):(diff===1?1:0);
+    const myPartner  = myA?(m.a.p1===playerName?m.a.p2:m.a.p1):(m.b.p1===playerName?m.b.p2:m.b.p1);
+    const oppPartner = oppA?(m.a.p1===opp?m.a.p2:m.a.p1):(m.b.p1===opp?m.b.p2:m.b.p1);
+    const score = myA?`${m.sa}-${m.sb}`:`${m.sb}-${m.sa}`;
+    matches.push({won,pts,diff,myPartner,oppPartner,score,tName:t.name,tDate:t.date});
+  }));
+  matches.sort((a,b)=>(b.tDate||'').localeCompare(a.tDate||''));
+
+  if(!matches.length){
+    content.innerHTML = `<div class="empty-state">Nessun incontro diretto con ${opp}.</div>`;
+    return;
+  }
+
+  const wins   = matches.filter(m=>m.won).length;
+  const losses = matches.length - wins;
+  const winPct = Math.round(wins/matches.length*100);
+  const myAvg  = (matches.reduce((s,m)=>s+m.pts,0)/matches.length).toFixed(2);
+  const winCol = winPct>=60?'#047857':winPct<=40?'var(--red)':'var(--muted)';
+
+  // Mini-ELO H2H (solo queste partite, partendo da 1200)
+  let myElo=1200, oppElo=1200;
+  const eloTrail = matches.slice().reverse().map(m=>{
+    const sMe = m.won?eloS(1,0):eloS(0,1);
+    const exp  = 1/(1+Math.pow(10,(oppElo-myElo)/400));
+    const k    = 20;
+    const dm   = Math.round(k*(sMe-exp)*10)/10;
+    myElo  = Math.round((myElo+dm)*10)/10;
+    oppElo = Math.round((oppElo-dm)*10)/10;
+    return {myElo, won:m.won};
+  });
+
+  content.innerHTML = `
+    <!-- Scoreboard -->
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin-bottom:14px;">
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);">${playerName}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:${winCol};">${wins}</div>
+          <div style="font-size:11px;color:var(--muted);">vittorie</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--muted);">VS</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);">${opp}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:${winPct<=50?'#047857':'var(--red)'};">${losses}</div>
+          <div style="font-size:11px;color:var(--muted);">vittorie</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:${winCol};">${winPct}%</div>
+          <div style="font-size:10px;color:var(--muted);">win rate</div>
+        </div>
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);">${matches.length}</div>
+          <div style="font-size:10px;color:var(--muted);">incontri</div>
+        </div>
+        <div style="background:var(--s2);border-radius:10px;padding:8px;text-align:center;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent2);">${myAvg}</div>
+          <div style="font-size:10px;color:var(--muted);">avg pt/match</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista scontri -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Scontri diretti</div>
+    ${matches.map(m=>{
+      const col = m.won?'#047857':'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;margin-bottom:4px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;flex-shrink:0;">${m.won?'V':'S'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--muted);">${m.tName}</div>
+          <div style="font-size:12px;font-weight:600;">con ${m.myPartner} vs ${opp} & ${m.oppPartner}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);">${m.score}</div>
+          <div style="font-size:10px;color:${col};font-weight:700;">${m.pts} pt</div>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
 let _profilePlayerName = null;
 
 async function renderProfile(){
@@ -5420,6 +5649,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.5</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.6</div>
 </body>
 </html>

@@ -1170,6 +1170,12 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <div id="profile-vs-group" style="font-size:12px;"></div>
   </div>
 
+  <!-- ELO Coppie -->
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🤝 ELO Coppie</div>
+    <div id="profile-couple-elo" style="font-size:12px;"></div>
+  </div>
+
   <!-- Analisi AI -->
   <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -2497,16 +2503,36 @@ function renderEloCoppie(){
     const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const wins = r.history.filter(h=>h.won).length;
 
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:6px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:28px;color:var(--muted);">${medal||('#'+(i+1))}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.5px;">${p1} <span style="color:var(--muted);font-weight:400;">+</span> ${p2}</div>
-        <div style="font-size:11px;color:var(--muted);">${r.played} partite · ${wins}V/${r.played-wins}S</div>
+    const winPct = r.played>0?Math.round(wins/r.played*100):0;
+    const eloDelta = r.elo - ELO_START;
+    const eloDeltaCol = eloDelta>=0?'#047857':'var(--red)';
+    const detailId = `couple-det-${r.key.replace(/\+/g,'-')}`;
+    return `<div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:2px;cursor:pointer;" onclick="document.getElementById('${detailId}').style.display=document.getElementById('${detailId}').style.display==='none'?'block':'none'">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;width:28px;color:var(--muted);">${medal||('#'+(i+1))}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.5px;">${p1} <span style="color:var(--muted);font-weight:400;">+</span> ${p2}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${r.played} partite · ${wins}V/${r.played-wins}S · ${winPct}% vittorie · <span style="color:${eloDeltaCol};font-weight:700;">${eloDelta>=0?'+':''}${eloDelta.toFixed(0)} vs base</span></div>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;margin-right:4px;">${forma}</div>
+        <div style="text-align:right;min-width:60px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--accent);">${r.elo.toFixed(0)}</div>
+          <div>${trendHtml}</div>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;align-items:center;">${forma}</div>
-      <div style="text-align:right;min-width:60px;">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--accent);">${r.elo.toFixed(0)}</div>
-        <div>${trendHtml}</div>
+      <div id="${detailId}" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:10px 14px;margin-bottom:6px;font-size:11px;">
+        <div style="font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">ULTIMI MATCH</div>
+        ${r.history.slice(-8).reverse().map(h=>{
+          const col=h.won?'#047857':'var(--red)';
+          const sign=h.delta>=0?'+':'';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);">
+            <span style="width:16px;height:16px;border-radius:50%;background:${col};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${h.won?'V':'S'}</span>
+            <span style="color:var(--muted);min-width:28px;">${h.score}</span>
+            <span style="flex:1;color:var(--muted);">vs ${h.vs}</span>
+            <span style="font-weight:700;color:${col};">${sign}${h.delta}</span>
+            <span style="color:var(--muted);min-width:32px;text-align:right;">${h.elo.toFixed(0)}</span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   }).join('');
@@ -2587,7 +2613,7 @@ async function renderProfile(){
         Chiedi all'amministratore di collegare il tuo account a un giocatore nella sezione Utenti.
       </div>`;
     ['profile-elo-current','profile-sparkline','profile-elo-range','profile-form',
-     'profile-form-stats','profile-best-partners','profile-opponents','profile-vs-group'].forEach(id=>{
+     'profile-form-stats','profile-best-partners','profile-opponents','profile-vs-group','profile-couple-elo'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.innerHTML='';
     });
     document.getElementById('profile-ai-content').textContent = 'Profilo non disponibile.';
@@ -2755,6 +2781,44 @@ async function renderProfile(){
         <div style="font-size:10px;color:var(--muted);">Media pt vs gruppo (${groupAvgPts.toFixed(2)})</div>
       </div>
     </div>`;
+
+  // ── ELO Coppie del giocatore ──
+  const {ratings:cRatings, played:cPlayed, history:cHistory} = computeEloCoppia('all');
+  const myCouples = Object.entries(cRatings)
+    .filter(([key])=>key.split('+').includes(playerName))
+    .map(([key,elo])=>{
+      const partner = key.split('+').find(p=>p!==playerName);
+      const h = cHistory[key]||[];
+      const wins = h.filter(x=>x.won).length;
+      const pl = cPlayed[key]||0;
+      const last3 = h.slice(-3).reverse();
+      return {key, partner, elo, played:pl, wins, losses:pl-wins, last3};
+    })
+    .sort((a,b)=>b.elo-a.elo);
+
+  document.getElementById('profile-couple-elo').innerHTML = myCouples.length
+    ? myCouples.map((c,i)=>{
+        const delta = c.elo - ELO_START;
+        const eloCol = delta>=0?'#047857':'var(--red)';
+        const winPct = c.played>0?Math.round(c.wins/c.played*100):0;
+        const forma = c.last3.map(h=>
+          `<span style="width:20px;height:20px;border-radius:50%;background:${h.won?'#047857':'var(--red)'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">${h.won?'V':'S'}</span>`
+        ).join('');
+        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s2);border-radius:12px;margin-bottom:6px;">
+          <div style="font-size:16px;width:22px;text-align:center;">${medal||`<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--muted);">${i+1}</span>`}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;">${c.partner}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${c.played} partite · ${c.wins}V/${c.losses}S · ${winPct}% vittorie</div>
+            <div style="display:flex;gap:3px;margin-top:4px;align-items:center;">${forma}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--accent);">${c.elo.toFixed(0)}</div>
+            <div style="font-size:10px;color:${eloCol};font-weight:700;">${delta>=0?'+':''}${delta.toFixed(0)} vs base</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px;">Nessuna partita di coppia trovata.</div>';
 
   // Carica analisi AI salvata (se esiste e corrisponde alle partite chiuse attuali)
   const aiBtn     = document.getElementById('profile-ai-btn');
@@ -5356,6 +5420,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.4</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.5</div>
 </body>
 </html>

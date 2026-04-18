@@ -2730,10 +2730,13 @@ DATI:
 Includi: stato di forma attuale, punti di forza, aree di miglioramento, e una frase finale motivazionale. Sii specifico, usa i numeri, evita frasi generiche.`;
 
   try {
-    // Chiama la Supabase Edge Function ai-proxy (evita CORS e nasconde la API key)
+    // Chiama la Supabase Edge Function ai-proxy
     const res = await fetch(`${SB_URL}/functions/v1/ai-proxy`, {
       method: 'POST',
-      headers: { ...SB_HDR, 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY
+      },
       body: JSON.stringify({ prompt })
     });
     if(!res.ok){
@@ -5022,6 +5025,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.6</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.3.7</div>
 </body>
 </html>

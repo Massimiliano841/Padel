@@ -1769,6 +1769,7 @@ function buildBookingCard(b, today){
     </div>
     ${chips ? `<div class="booking-participants">${chips}</div>` : ''}
     <div class="booking-actions">
+      <button class="btn-sm" style="border-color:#25D366;color:#25D366;" onclick="shareBookingWhatsApp('${b.id}')">📲 WhatsApp</button>
       <button class="btn-sm" style="border-color:var(--accent);color:var(--accent);" onclick="editBooking('${b.id}')">✏ Modifica</button>
       <button class="btn-sm" onclick="deleteBooking('${b.id}')">✕ Elimina</button>
     </div>
@@ -1828,6 +1829,35 @@ function editBooking(id){
 function closeBookingForm(){
   document.getElementById('bookingForm').style.display = 'none';
   _bookingParticipants = [];
+}
+
+function shareBookingWhatsApp(id){
+  const b = bookings.find(x=>x.id===id);
+  if(!b) return;
+
+  // Costruisce il messaggio
+  const appUrl = 'https://massimiliano841.github.io/Padel/';
+  const lines = [];
+  lines.push(`🎾 *${b.title}*`);
+  if(b.date){
+    const d = new Date(b.date+'T12:00:00');
+    lines.push(`📅 ${d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}`);
+  }
+  if(b.time){
+    const timeStr = b.timeEnd ? `${b.time} – ${b.timeEnd}` : b.time;
+    lines.push(`🕐 ${timeStr}`);
+  }
+  if(b.place)  lines.push(`📍 ${b.place}`);
+  if(b.maxParticipants) lines.push(`👥 Posti: ${(b.participants||[]).length}/${b.maxParticipants}`);
+  if(b.participants?.length){
+    lines.push(`✅ Iscritti: ${b.participants.join(', ')}`);
+  }
+  if(b.notes)  lines.push(`📝 ${b.notes}`);
+  lines.push('');
+  lines.push(`👉 ${appUrl}`);
+
+  const text = encodeURIComponent(lines.join('\n'));
+  window.open(`https://wa.me/?text=${text}`, '_blank');
 }
 
 function populateBookingPlayerSelect(){
@@ -5760,6 +5790,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.8</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.9</div>
 </body>
 </html>

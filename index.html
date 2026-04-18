@@ -1137,6 +1137,7 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
     <button class="pill active" id="ptab-summary"  onclick="setProfileTab('summary',this)">📊 Riepilogo</button>
     <button class="pill"        id="ptab-history"  onclick="setProfileTab('history',this)">📋 Storico</button>
     <button class="pill"        id="ptab-h2h"      onclick="setProfileTab('h2h',this)">⚔️ Testa a Testa</button>
+    <button class="pill"        id="ptab-couples"  onclick="setProfileTab('couples',this)">🤝 Coppie</button>
   </div>
 
   <!-- ── TAB: RIEPILOGO ── -->
@@ -1175,11 +1176,6 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       <div id="profile-vs-group" style="font-size:12px;"></div>
     </div>
 
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">🤝 ELO Coppie</div>
-      <div id="profile-couple-elo" style="font-size:12px;"></div>
-    </div>
-
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;">✨ Analisi AI</div>
@@ -1209,6 +1205,11 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
       </select>
     </div>
     <div id="profile-h2h-content"></div>
+  </div>
+
+  <!-- ── TAB: COPPIE ── -->
+  <div id="profile-tab-couples" style="display:none;">
+    <div id="profile-couple-elo" style="font-size:12px;"></div>
   </div>
 </div>
 
@@ -2626,13 +2627,15 @@ let _profileTab = 'summary';
 
 function setProfileTab(tab, btn){
   _profileTab = tab;
-  document.querySelectorAll('#ptab-summary,#ptab-history,#ptab-h2h').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#ptab-summary,#ptab-history,#ptab-h2h,#ptab-couples').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('profile-tab-summary').style.display = tab==='summary' ? '' : 'none';
   document.getElementById('profile-tab-history').style.display = tab==='history' ? '' : 'none';
   document.getElementById('profile-tab-h2h').style.display     = tab==='h2h'     ? '' : 'none';
+  document.getElementById('profile-tab-couples').style.display = tab==='couples' ? '' : 'none';
   if(tab==='history') renderProfileHistory();
   if(tab==='h2h')     renderProfileH2H();
+  if(tab==='couples') renderProfileCouples();
 }
 
 function renderProfileHistory(){
@@ -2730,6 +2733,57 @@ function renderProfileH2H(){
   const opp = sel.value;
   const content = document.getElementById('profile-h2h-content');
   if(!opp){ content.innerHTML = ''; return; }
+
+function renderProfileCouples(){
+  const playerName = _profilePlayerName;
+  if(!playerName){ document.getElementById('profile-couple-elo').innerHTML=''; return; }
+  const {ratings:cR, played:cP, history:cH} = computeEloCoppia('all');
+  const myCouples = Object.entries(cR)
+    .filter(([key])=>key.split('+').includes(playerName))
+    .map(([key,elo])=>{
+      const partner=key.split('+').find(p=>p!==playerName);
+      const h=cH[key]||[], pl=cP[key]||0, wins=h.filter(x=>x.won).length;
+      return {key,partner,elo,played:pl,wins,losses:pl-wins,history:h};
+    }).sort((a,b)=>b.elo-a.elo);
+
+  document.getElementById('profile-couple-elo').innerHTML = myCouples.length
+    ? myCouples.map((c,i)=>{
+        const delta=c.elo-ELO_START, eloCol=delta>=0?'#047857':'var(--red)';
+        const winPct=c.played>0?Math.round(c.wins/c.played*100):0;
+        const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        const last3=c.history.slice(-3).reverse();
+        const forma=last3.map(h=>`<span style="width:20px;height:20px;border-radius:50%;background:${h.won?'#047857':'var(--red)'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">${h.won?'V':'S'}</span>`).join('');
+        const detailId=`pcd-${c.key.replace(/\+/g,'-')}`;
+        return `<div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:2px;cursor:pointer;" onclick="document.getElementById('${detailId}').style.display=document.getElementById('${detailId}').style.display==='none'?'block':'none'">
+            <div style="font-size:18px;width:24px;text-align:center;">${medal||`<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;color:var(--muted);font-size:14px;">${i+1}</span>`}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:800;font-size:14px;">${c.partner}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">${c.played} partite · ${c.wins}V/${c.losses}S · ${winPct}% vittorie</div>
+              <div style="display:flex;gap:3px;margin-top:4px;">${forma}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--accent);">${c.elo.toFixed(0)}</div>
+              <div style="font-size:10px;font-weight:700;color:${eloCol};">${delta>=0?'+':''}${delta.toFixed(0)}</div>
+            </div>
+          </div>
+          <div id="${detailId}" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:10px 14px;margin-bottom:6px;font-size:11px;">
+            <div style="font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">ULTIMI MATCH</div>
+            ${c.history.slice(-8).reverse().map(h=>{
+              const hcol=h.won?'#047857':'var(--red)';
+              return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);">
+                <span style="width:16px;height:16px;border-radius:50%;background:${hcol};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${h.won?'V':'S'}</span>
+                <span style="color:var(--muted);min-width:28px;">${h.score}</span>
+                <span style="flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">vs ${h.vs}</span>
+                <span style="font-weight:700;color:${hcol};">${h.delta>=0?'+':''}${h.delta}</span>
+                <span style="color:var(--muted);min-width:36px;text-align:right;">${h.elo.toFixed(0)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">Nessuna partita di coppia trovata.</div>';
+}
 
   // Partite in cui entrambi hanno giocato (su lati opposti)
   const matches = [];
@@ -5649,6 +5703,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.6</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.7</div>
 </body>
 </html>

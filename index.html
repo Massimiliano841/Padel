@@ -3024,15 +3024,19 @@ async function renderProfile(){
   const wins   = allMatches.filter(m=>m.won).length;
   const losses = allMatches.filter(m=>m.lost).length;
   const totPts = allMatches.reduce((s,m)=>s+m.pts,0);
-  const avg    = total>0 ? (totPts/total).toFixed(2) : '—';
+  // Saldo 2025 (aggregato): incluso nei totali del profilo (Media e Partite)
+  const carry25   = CARRY_2025[playerName];
+  const totalAll  = total  + (carry25 ? carry25.played : 0);
+  const totPtsAll = totPts + (carry25 ? carry25.pts    : 0);
+  const avg    = totalAll>0 ? (totPtsAll/totalAll).toFixed(2) : '—';
 
-  document.getElementById('profile-sub').textContent = `${total} partite totali`;
+  document.getElementById('profile-sub').textContent = `${totalAll} partite totali${carry25?' · incl. 2025':''}`;
 
   // Stats grid
   const statCards = [
     { label:'ELO',    val:'—', id:'ps-elo',   col:'var(--accent)' },
     { label:'Media',  val:avg,                 col:'var(--accent2)' },
-    { label:'Partite',val:total,               col:'var(--text)' },
+    { label:'Partite',val:totalAll,            col:'var(--text)' },
     { label:'Vittorie',val:wins,               col:'#047857' },
     { label:'Sconfitte',val:losses,            col:'var(--red)' },
   ];
@@ -4733,6 +4737,19 @@ function populateSeasonPicker(){
   if(!sel.value && seasons.length) sel.value=seasons[seasons.length-1].id;
 }
 
+// Classifica 2025 (aggregato, senza dettaglio partite): saldo di partenza
+// sommato SOLO nella classifica generale ("Tutti") e nei profili giocatore.
+// Fuori dall'ELO (nessun dettaglio partita). Nomi già mappati ai giocatori.
+// { pts: punti, played: partite giocate, gf: set vinti }
+const CARRY_2025 = {
+  Freddy: { pts:113, played:57, gf:166 },
+  Posa:   { pts:136, played:69, gf:199 },
+  Piso:   { pts:92,  played:60, gf:133 },
+  Smex:   { pts:81,  played:62, gf:144 },
+  Crupi:  { pts:59,  played:53, gf:104 },
+  Ivan:   { pts:15,  played:17, gf:35  },
+};
+
 function renderRank(){
   if(rankView === 'couples'){ renderRankCouples(); return; }
   let fromDate=null, toDate=null, subtitle='Tutti i risultati';
@@ -4825,6 +4842,15 @@ function renderRank(){
     tournamentFilter.players.forEach(name=>ensurePlayer(name));
   }
 
+  // Saldo 2025: solo nella classifica generale "Tutti" (no filtri periodo/torneo)
+  const carryActive = (rankFilter==='all' && !tournamentFilter);
+  if(carryActive){
+    Object.entries(CARRY_2025).forEach(([name,c])=>{
+      ensurePlayer(name);
+      stats[name].pts += c.pts; stats[name].played += c.played; stats[name].gf += c.gf;
+    });
+  }
+
   // Compute avg for each player
   const withAvg = Object.values(stats).map(s=>({
     ...s,
@@ -4852,7 +4878,16 @@ function renderRank(){
   }
 
   // Column definitions: [key, label, title]
-  const cols=[
+  // Nella generale "Tutti" col saldo 2025 mostriamo solo le colonne complete
+  // (Media, Punti, Partite, Set vinti); Vinte/Perse/Set persi sono nascoste
+  // perché il 2025 è aggregato e non ha quel dettaglio.
+  const cols = carryActive ? [
+    ['name',   'Giocatore',           'Nome del giocatore'],
+    ['avg',    'Media pt/partita',    'Media punti per partita — criterio principale'],
+    ['pts',    'Punti totali',        'Totale punti accumulati (incl. 2025)'],
+    ['played', 'Partite giocate',     'Numero di partite disputate (incl. 2025)'],
+    ['gf',     'Set vinti',           'Totale set vinti (incl. 2025)'],
+  ] : [
     ['name',   'Giocatore',           'Nome del giocatore'],
     ['avg',    'Media pt/partita',    'Media punti per partita — criterio principale'],
     ['pts',    'Punti totali',        'Totale punti accumulati'],
@@ -4888,7 +4923,8 @@ function renderRank(){
       }).join('')}
     </tr>`).join('');
 
-  rankList.innerHTML = progressHtml + `
+  const carryNote = carryActive ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Include la classifica <b>2025</b> (aggregata). Vinte/Perse/Set persi nascoste perché il 2025 non ha il dettaglio partita.</div>` : '';
+  rankList.innerHTML = progressHtml + carryNote + `
     <div class="rank-table-wrap">
       <table class="rank-table">
         <thead><tr><th style="cursor:default;">#</th>${thHtml}</tr></thead>
@@ -5943,6 +5979,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.8.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.9.0</div>
 </body>
 </html>

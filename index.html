@@ -4117,8 +4117,10 @@ function startTournament(){
   }
 
   const pairs = allPairs(names);
+  // Pesi storici della stagione attiva (varit anche nel tempo, secondaria)
+  const hist = seasonHistoryWeights(activeSeason || null);
   // Genera i match base e poi li replica per ogni giro
-  const baseMatches = allMatchups(pairs, lateSnap);
+  const baseMatches = allMatchups(pairs, lateSnap, hist);
   let allMatches = [];
   for(let g=0; g<ntRounds; g++){
     const offset = g * baseMatches.length;
@@ -5447,6 +5449,32 @@ function allPairs(arr){
   return res;
 }
 
+// Storico della stagione: per ogni coppia e per ogni quartetto (4 giocatori)
+// somma quante volte hanno GI giocato insieme, dando pi peso ai tornei
+// recenti (decadimento). Conta solo le partite effettivamente giocate (done).
+// Restituisce { pairW:{chiaveCoppia:peso}, quadW:{chiaveQuartetto:peso} }.
+function seasonHistoryWeights(seasonId){
+  const pairW = {}, quadW = {};
+  const rel = tournaments
+    .filter(t => (t.seasonId || null) === (seasonId || null) && Array.isArray(t.matches))
+    .slice()
+    .sort((x,y) => new Date(y.date||0) - new Date(x.date||0)); // dal pi recente
+  const DECAY = 0.6; // torneo pi recente = 1, poi 0.6, 0.36, 0.216, ...
+  rel.forEach((t, rank) => {
+    const w = Math.pow(DECAY, rank);
+    t.matches.forEach(m => {
+      if(!m.done || !m.a || !m.b) return;
+      const pa = [m.a.p1, m.a.p2].sort().join('|');
+      const pb = [m.b.p1, m.b.p2].sort().join('|');
+      pairW[pa] = (pairW[pa]||0) + w;
+      pairW[pb] = (pairW[pb]||0) + w;
+      const q = [m.a.p1, m.a.p2, m.b.p1, m.b.p2].sort().join('|');
+      quadW[q] = (quadW[q]||0) + w;
+    });
+  });
+  return { pairW, quadW };
+}
+
 // Smart scheduler:
 // 1. Generate all valid 2v2 matchups (4 distinct players each)
 // 2. For odd n, one player sits per match — tracked in m.bye
@@ -5457,7 +5485,7 @@ function allPairs(arr){
 //   2. Ritardatari: non compaiono nella prima partita
 //   3. Riposi distanziati: penalizza riposi consecutivi (finestra scorrevole)
 //   4. Varietà temporale: penalizza coppie già viste di recente
-function allMatchups(pairs, lateSet){
+function allMatchups(pairs, lateSet, hist){
   const allPlayers=[...new Set(pairs.flatMap(p=>[p.p1,p.p2]))];
   const late = lateSet instanceof Set ? lateSet : new Set();
 
@@ -5481,6 +5509,21 @@ function allMatchups(pairs, lateSet){
   function pairKey(pair){ return [pair.p1,pair.p2].sort().join('|'); }
   function matchPlayers(m){ return [m.a.p1,m.a.p2,m.b.p1,m.b.p2]; }
   function matchPairKeys(m){ return [pairKey(m.a), pairKey(m.b)]; }
+  function matchQuadKey(m){ return matchPlayers(m).slice().sort().join('|'); }
+
+  // Peso storico di ogni partita: quanto le sue coppie e il suo quartetto sono
+  // gi stati giocati nella stagione (pi peso ai tornei recenti). Serve solo
+  // come criterio SECONDARIO: le partite gi viste nello storico finiscono in
+  // coda, senza mai sacrificare la variet interna al torneo.
+  const HIST_PAIR_W = 3;  // coppia gi giocata insieme (priorit maggiore)
+  const HIST_QUAD_W = 2;  // stessi 4 giocatori nella stessa partita
+  const histPairW = (hist && hist.pairW) || {};
+  const histQuadW = (hist && hist.quadW) || {};
+  raw.forEach(m => {
+    const [ka, kb] = matchPairKeys(m);
+    m._hist = HIST_PAIR_W * ((histPairW[ka]||0) + (histPairW[kb]||0))
+            + HIST_QUAD_W * (histQuadW[matchQuadKey(m)]||0);
+  });
 
   const totalMatchCount = raw.length;
 
@@ -5581,7 +5624,12 @@ function allMatchups(pairs, lateSet){
         chosen = candidates[Math.floor(Math.random() * candidates.length)];
       } else {
         const near = scored.filter(s => s.cost <= bestCost + 1e-9);
-        chosen = near[Math.floor(Math.random() * near.length)].m;
+        // Tra le partite ugualmente ottime per la variet del torneo, preferisci
+        // quelle meno gi viste nello storico (le pi "storiche" vanno in coda).
+        let minH = Infinity;
+        for(const s of near){ if(s.m._hist < minH) minH = s.m._hist; }
+        const fresh = near.filter(s => s.m._hist <= minH + 1e-9);
+        chosen = fresh[Math.floor(Math.random() * fresh.length)].m;
       }
 
       const pl = matchPlayers(chosen);
@@ -5599,11 +5647,17 @@ function allMatchups(pairs, lateSet){
   // Numero proporzionato al costo (~ tentativi  partite) per restare veloce
   // anche con molti giocatori, senza perdere qualit sui tornei piccoli.
   const attempts = Math.max(15, Math.min(250, Math.round(1800000 / (totalMatchCount * totalMatchCount + 1))));
-  let scheduled = null, bestPen = Infinity;
+  let scheduled = null, bestPen = Infinity, bestHist = Infinity;
   for(let a = 0; a < attempts; a++){
     const order = buildSchedule();
     const pen = globalPenalty(order);
-    if(pen < bestPen){ bestPen = pen; scheduled = order; }
+    // Criterio secondario: le partite "storiche" messe presto pesano di pi,
+    // cos a parit di variet interna vince la sequenza che le mette in coda.
+    let hpen = 0;
+    for(let t = 0; t < order.length; t++) hpen += order[t]._hist * (order.length - t);
+    if(pen < bestPen - 1e-9 || (pen <= bestPen + 1e-9 && hpen < bestHist)){
+      bestPen = pen; bestHist = hpen; scheduled = order;
+    }
   }
   if(!scheduled) scheduled = [...raw];
 
@@ -5845,6 +5899,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.5.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.6.0</div>
 </body>
 </html>

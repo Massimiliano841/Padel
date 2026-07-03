@@ -4225,6 +4225,33 @@ function renderMatches(){
     list.innerHTML='<div class="no-tournament">Genera un torneo nella tab <strong>Torneo</strong></div>'; return;
   }
 
+  // ── Durata partita + combattività (auto-calibrata sul ritmo del torneo) ──
+  const _durs = t.matches.filter(x=>x.done && typeof x.duration==='number').map(x=>x.duration);
+  const _medDur = _durs.length
+    ? (()=>{ const s=[..._durs].sort((a,b)=>a-b), mid=Math.floor(s.length/2);
+             return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2; })()
+    : null;
+  function fmtDur(sec){
+    if(sec==null) return '';
+    if(sec<60) return sec+'s';
+    const m=Math.floor(sec/60), s=sec%60;
+    return s ? `${m}m ${s}s` : `${m} min`;
+  }
+  // Restituisce l'HTML "⏱ durata · icona etichetta" per una partita giocata
+  function timeBadge(m){
+    if(typeof m.duration!=='number') return '';
+    const margin=Math.abs(m.sa-m.sb);
+    const ratio=_medDur ? m.duration/_medDur : 1;            // tempo relativo al torneo
+    const timeScore=Math.max(0,Math.min(1,(ratio-0.6)/0.9)); // 0.6×→0, 1.5×→1
+    const marginScore=margin<=1 ? 1 : margin<=2 ? 0.5 : 0;   // scarto piccolo = più combattuta
+    const score=0.6*timeScore + 0.4*marginScore;
+    let icon,lab,col;
+    if(score>=0.6){ icon='🔥'; lab='Combattuta'; col='var(--red)'; }
+    else if(score>=0.33){ icon='⚖️'; lab='Equilibrata'; col='var(--muted)'; }
+    else { icon='⚡'; lab='Netta'; col='var(--accent2)'; }
+    return `<div style="font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;">⏱ ${fmtDur(m.duration)} · <span style="color:${col};font-weight:700;">${icon} ${lab}</span></div>`;
+  }
+
   // Tournament is closed — show read-only view, no interaction
   if(t.closed){
     const ms = t.matches.filter(m=>m.done);
@@ -4247,6 +4274,7 @@ function renderMatches(){
               <span class="match-num">P${m.id+1}</span>
               <div class="match-score-disp"><span class="sa">${m.sa}</span><span class="sep">:</span><span class="sb">${m.sb}</span></div>
               <span class="match-status status-done">${ptLabel}</span>
+              ${timeBadge(m)}
             </div>
             <div class="match-team right">
               <div class="match-players-uni">${m.b.p1}</div>
@@ -4339,6 +4367,7 @@ function renderMatches(){
             ? `<span class="match-status status-done">${ptLabel}</span>`
             : `<span class="match-status status-pending">In attesa</span>`}
           ${m.label ? `<div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--accent);margin-top:3px;text-transform:uppercase;">${m.label}</div>` : ''}
+          ${m.done ? timeBadge(m) : ''}
         </div>
         <div class="match-team right">
           <div class="match-players-uni">${m.b.p1}</div>
@@ -4476,7 +4505,18 @@ function confirmMatch(id){
   const m=t.matches.find(x=>String(x.id)===id);
   if(!m) return;
   const ts=tempScores[id]||{sa:0,sb:0};
-  m.sa=ts.sa; m.sb=ts.sb; m.done=true; m.date=new Date().toISOString();
+  // Durata "soft": tempo trascorso dall'ultimo risultato confermato del torneo
+  // (o dall'avvio del torneo per la prima partita giocata).
+  const nowMs = new Date().getTime();
+  let checkpoint = t.date ? new Date(t.date).getTime() : nowMs;
+  t.matches.forEach(x=>{
+    if(x!==m && x.done && x.date){
+      const d = new Date(x.date).getTime();
+      if(d > checkpoint && d <= nowMs) checkpoint = d;
+    }
+  });
+  m.duration = Math.max(0, Math.round((nowMs - checkpoint)/1000)); // secondi
+  m.sa=ts.sa; m.sb=ts.sb; m.done=true; m.date=new Date(nowMs).toISOString();
   delete tempScores[id];
   openMatchId=null;
   addLog('matches', `Risultato P${Number(id)+1}: ${m.a.p1}&${m.a.p2} ${ts.sa}–${ts.sb} ${m.b.p1}&${m.b.p2} — "${t.name}"`);
@@ -4492,7 +4532,7 @@ function undoMatch(id){
   const m=t.matches.find(x=>String(x.id)===id);
   if(!m) return;
   addLog('matches', `Annullato risultato P${Number(id)+1} — "${t.name}"`);
-  m.sa=0; m.sb=0; m.done=false; delete m.date;
+  m.sa=0; m.sb=0; m.done=false; delete m.date; delete m.duration;
   delete tempScores[id];
   openMatchId=null;
   save('tournaments', tournaments);
@@ -5899,6 +5939,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.6.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.7.0</div>
 </body>
 </html>

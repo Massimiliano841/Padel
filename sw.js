@@ -3,7 +3,7 @@
 //  Aggiorna questo numero ad ogni release
 //  per forzare il refresh su tutti i dispositivi
 // ─────────────────────────────────────────────
-const VERSION = 'padel-pro-v1.7.0';
+const VERSION = 'padel-pro-v1.8.0';
 
 // Install: mette in cache i file essenziali
 self.addEventListener('install', e => {

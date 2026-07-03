@@ -2295,6 +2295,7 @@ function computeEloSnapshot(excludeTournamentId){
   const allDone = [];
   tournaments.forEach(t => {
     if(t.id === excludeTournamentId) return; // escludi il torneo corrente
+    if(t.eloExclude) return; // tornei storici: esclusi dal calcolo ELO
     t.matches.forEach(m => {
       if(!m.done) return;
       allDone.push({ m, t });
@@ -2341,6 +2342,7 @@ function computeElo(filterSeasonId){
   const allDone = [];
   tournaments.forEach(t => {
     if(filterSeasonId && filterSeasonId !== 'all' && t.seasonId !== filterSeasonId) return;
+    if(t.eloExclude) return; // tornei storici: esclusi dal calcolo ELO
     t.matches.forEach(m => {
       if(!m.done) return;
       allDone.push({ m, t });
@@ -2500,6 +2502,7 @@ function computeEloCoppia(filterSeasonId){
   const allDone = [];
   tournaments.forEach(t=>{
     if(filterSeasonId && filterSeasonId!=='all' && t.seasonId!==filterSeasonId) return;
+    if(t.eloExclude) return; // tornei storici: esclusi dal calcolo ELO
     t.matches.forEach(m=>{ if(m.done) allDone.push({m,t}); });
   });
   allDone.sort((a,b)=>{
@@ -5151,6 +5154,7 @@ function renderTournamentDetail(){
   });
   // Delta totale = ELO fine - ELO inizio
   function eloDeltaHtml(name){
+    if(t.eloExclude) return `<span style="color:var(--muted);">—</span>`; // storici: fuori dall'ELO
     const start = eloSnapForRank[name] ?? ELO_START;
     const end   = eloEndForRank[name]  ?? ELO_START;
     const d = Math.round((end - start) * 10) / 10;
@@ -5939,6 +5943,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.7.0</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.8.0</div>
 </body>
 </html>

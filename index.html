@@ -5483,83 +5483,138 @@ function allMatchups(pairs, lateSet){
   function matchPairKeys(m){ return [pairKey(m.a), pairKey(m.b)]; }
 
   const totalMatchCount = raw.length;
-  const restWindow = Math.max(2, allPlayers.length - 1);
-  const varietyWindow = Math.max(3, Math.floor(totalMatchCount / 2));
 
-  const scheduled=[];
-  const remaining=[...raw];
-  const restCount={};
-  allPlayers.forEach(p=>{ restCount[p]=0; });
+  // Pesi (variet coppie ed equit riposi bilanciate allo stesso modo)
+  const PAIR_W   = 100;  // ripetizione ravvicinata della stessa coppia
+  const REST_W   = 100;  // riposo ravvicinato della stessa persona
+  const PLAYER_W = 40;   // stesso giocatore in due partite consecutive
+  const EQUITY_W = 25;   // squilibrio nel numero totale di riposi
 
-  while(remaining.length>0){
-    let best=null, bestScore=-Infinity;
-
-    // Prima prova solo i candidati che non includono ritardatari (prima partita)
-    const candidates = (scheduled.length===0 && late.size>0)
-      ? remaining.filter(m => !matchPlayers(m).some(p=>late.has(p)))
-      : remaining;
-    const pool = candidates.length > 0 ? candidates : remaining; // fallback
-
-    for(const m of pool){
-      const playing=matchPlayers(m);
-      const resting=allPlayers.filter(p=>!playing.includes(p));
-      const pKeys=matchPairKeys(m);
-
-      // Hard: stessa coppia consecutiva
-      const prevPairKeys = scheduled.length>0 ? matchPairKeys(scheduled[scheduled.length-1]) : [];
-      const sameConsec = pKeys.some(k=>prevPairKeys.includes(k));
-
-      // Penalità giocatore ripetuto dalla partita precedente
-      const prevPlayers = scheduled.length>0 ? matchPlayers(scheduled[scheduled.length-1]) : [];
-      const repeatPlayers = playing.filter(p=>prevPlayers.includes(p)).length;
-
-      // Penalità riposi recenti consecutivi (quadratica)
-      const recentMatches = scheduled.slice(-restWindow);
-      let recentRestPenalty = 0;
-      for(const p of resting){
-        let consec = 0;
-        for(let i=recentMatches.length-1; i>=0; i--){
-          if(!matchPlayers(recentMatches[i]).includes(p)) consec++;
-          else break;
-        }
-        recentRestPenalty += consec * consec;
+  // Penalit globale di una sequenza: pi bassa = pi varia/equilibrata.
+  // Misura esattamente ci che vogliamo massimizzare:
+  //  - distanza tra ripetizioni della stessa coppia (1/distanza)
+  //  - distanza tra i riposi della stessa persona (1/distanza)
+  //  - rotazione dei giocatori tra una partita e la successiva
+  //  - equit: varianza del numero di riposi per giocatore
+  function globalPenalty(order){
+    let pen = 0;
+    const lastPair = {}; // coppia -> indice ultima partita giocata
+    const lastRest = {}; // player -> indice ultimo riposo
+    const restCount = {};
+    allPlayers.forEach(p => { restCount[p] = 0; });
+    for(let t = 0; t < order.length; t++){
+      const pl = matchPlayers(order[t]);
+      const ks = matchPairKeys(order[t]);
+      for(const k of ks){
+        if(k in lastPair) pen += PAIR_W / (t - lastPair[k]);
+        lastPair[k] = t;
       }
-
-      // Penalità varietà: stessa coppia già vista nella finestra recente
-      const recentVariety = scheduled.slice(-varietyWindow);
-      let varietyPenalty = 0;
-      for(const pk of pKeys){
-        for(const rm of recentVariety){
-          if(matchPairKeys(rm).includes(pk)) varietyPenalty++;
+      if(t > 0){
+        const pp = matchPlayers(order[t-1]);
+        pen += PLAYER_W * pl.filter(p => pp.includes(p)).length;
+      }
+      for(const p of allPlayers){
+        if(!pl.includes(p)){
+          if(p in lastRest) pen += REST_W / (t - lastRest[p]);
+          lastRest[p] = t;
+          restCount[p]++;
         }
       }
-
-      // Bonus: giocatori con più riposi accumulati
-      const restBonus  = playing.reduce((s,p)=>s+restCount[p],0);
-      const restPenalty= resting.reduce((s,p)=>s+restCount[p],0);
-
-      let score = restBonus
-                - restPenalty * 2
-                - recentRestPenalty * 30
-                - varietyPenalty * 15
-                - repeatPlayers * 50;
-      if(sameConsec) score -= 1000;
-
-      if(score>bestScore){ bestScore=score; best=m; }
     }
-
-    if(!best) best = remaining[0];
-
-    const playing=matchPlayers(best);
-    const byePlayers=allPlayers.filter(p=>!playing.includes(p));
-    best.bye = byePlayers.length>0 ? byePlayers : null;
-    byePlayers.forEach(p=>restCount[p]++);
-
-    scheduled.push(best);
-    remaining.splice(remaining.indexOf(best),1);
+    const vals = allPlayers.map(p => restCount[p]);
+    const mean = vals.reduce((a,b)=>a+b,0) / vals.length;
+    pen += EQUITY_W * vals.reduce((a,b)=>a+(b-mean)*(b-mean),0) / vals.length;
+    return pen;
   }
 
-  scheduled.forEach((m,i)=>m.id=i);
+  // Costruisce UNA sequenza con greedy randomizzato guidato dai criteri LRU:
+  // a ogni passo sceglie la partita col minor costo marginale (coppia/riposo
+  // usati pi tempo fa, meno ripetizioni), pescando a caso tra i pari-merito
+  // cos ogni tentativo esplora una soluzione diversa.
+  function buildSchedule(){
+    const order = [];
+    const pool = [...raw];
+    const lastPair = {};
+    const lastRest = {};
+    const restCount = {};
+    allPlayers.forEach(p => { restCount[p] = 0; });
+
+    while(pool.length > 0){
+      const t = order.length;
+      const prev = t > 0 ? order[t-1] : null;
+      const prevPlayers = prev ? matchPlayers(prev) : [];
+      const prevKeys = prev ? matchPairKeys(prev) : [];
+
+      // Prima partita: esclude i ritardatari
+      let candidates = (t === 0 && late.size > 0)
+        ? pool.filter(m => !matchPlayers(m).some(p => late.has(p)))
+        : pool;
+      if(candidates.length === 0) candidates = pool;
+
+      let bestCost = Infinity;
+      const scored = [];
+      for(const m of candidates){
+        const pl = matchPlayers(m);
+        const ks = matchPairKeys(m);
+
+        // Vietato: stessa coppia appena giocata
+        if(ks.some(k => prevKeys.includes(k))) continue;
+
+        let cost = 0;
+        for(const k of ks){
+          if(k in lastPair) cost += PAIR_W / (t - lastPair[k]);
+        }
+        cost += PLAYER_W * pl.filter(p => prevPlayers.includes(p)).length;
+        for(const p of allPlayers){
+          if(!pl.includes(p)){
+            if(p in lastRest) cost += REST_W / (t - lastRest[p]);
+            cost += EQUITY_W * restCount[p];
+          }
+        }
+        scored.push({ m, cost });
+        if(cost < bestCost) bestCost = cost;
+      }
+
+      let chosen;
+      if(scored.length === 0){
+        // Solo se ogni candidato ripeterebbe la coppia precedente
+        chosen = candidates[Math.floor(Math.random() * candidates.length)];
+      } else {
+        const near = scored.filter(s => s.cost <= bestCost + 1e-9);
+        chosen = near[Math.floor(Math.random() * near.length)].m;
+      }
+
+      const pl = matchPlayers(chosen);
+      matchPairKeys(chosen).forEach(k => { lastPair[k] = t; });
+      for(const p of allPlayers){
+        if(!pl.includes(p)){ lastRest[p] = t; restCount[p]++; }
+      }
+      order.push(chosen);
+      pool.splice(pool.indexOf(chosen), 1);
+    }
+    return order;
+  }
+
+  // Tentativi multipli: tiene la sequenza globalmente migliore.
+  // Numero proporzionato al costo (~ tentativi  partite) per restare veloce
+  // anche con molti giocatori, senza perdere qualit sui tornei piccoli.
+  const attempts = Math.max(15, Math.min(250, Math.round(1800000 / (totalMatchCount * totalMatchCount + 1))));
+  let scheduled = null, bestPen = Infinity;
+  for(let a = 0; a < attempts; a++){
+    const order = buildSchedule();
+    const pen = globalPenalty(order);
+    if(pen < bestPen){ bestPen = pen; scheduled = order; }
+  }
+  if(!scheduled) scheduled = [...raw];
+
+  // Assegna i "bye" (giocatori a riposo) a ogni partita
+  scheduled.forEach(m => {
+    const pl = matchPlayers(m);
+    const byePlayers = allPlayers.filter(p => !pl.includes(p));
+    m.bye = byePlayers.length > 0 ? byePlayers : null;
+  });
+
+  scheduled.forEach((m,i) => m.id = i);
   return scheduled;
 }
 
@@ -5790,6 +5845,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.4.9</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.5.0</div>
 </body>
 </html>

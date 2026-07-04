@@ -1146,6 +1146,17 @@ label.lbl{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacin
   <div id="profile-tab-summary">
     <div id="profile-stats-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;"></div>
 
+    <!-- Email per le notifiche -->
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">📧 Email per le notifiche</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Salva la tua email per ricevere il promemoria dei tuoi prossimi match.</div>
+      <div style="display:flex;gap:8px;">
+        <input class="inp" id="profile-email" type="email" autocomplete="email" placeholder="latua@email.it" style="flex:1;min-width:0;">
+        <button class="btn btn-primary" style="flex-shrink:0;" onclick="saveMyEmail()">Salva</button>
+      </div>
+      <div id="profile-email-status" style="font-size:12px;margin-top:8px;"></div>
+    </div>
+
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;">⚡ Storico ELO</div>
       <div id="profile-elo-current" style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:800;color:var(--accent);margin-bottom:4px;"></div>
@@ -2972,6 +2983,30 @@ function renderProfileCouples(){
 
 let _profilePlayerName = null;
 
+// Ogni utente salva la propria email per le notifiche dei match
+async function saveMyEmail(){
+  const el = document.getElementById('profile-email');
+  const status = document.getElementById('profile-email-status');
+  const setMsg = (msg,col)=>{ if(status){ status.style.color=col; status.textContent=msg; } };
+  const email = (el?.value||'').trim();
+  if(!currentUser?.username){ setMsg('Devi essere loggato.','var(--red)'); return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ setMsg('Email non valida.','var(--red)'); return; }
+  setMsg('Salvataggio…','var(--muted)');
+  let users = await sbGet('users').catch(()=>null);
+  if(!Array.isArray(users)) users = [];
+  const u = users.find(x=>x.username.toLowerCase()===currentUser.username.toLowerCase());
+  if(!u){ setMsg('Utente non trovato.','var(--red)'); return; }
+  u.email = email;
+  try {
+    await sbSet('users', users);
+    cachedUsers = users;
+    addLog('auth', `${currentUser.username} ha aggiornato la propria email`);
+    setMsg(email ? '✅ Email salvata' : '✅ Email rimossa', 'var(--accent2)');
+  } catch(e){
+    setMsg('❌ Errore nel salvataggio: ' + e.message, 'var(--red)');
+  }
+}
+
 async function renderProfile(){
   // Usa cache locale — aggiornata all'init e nel polling
   let playerName = null;
@@ -3004,6 +3039,12 @@ async function renderProfile(){
   av.style.background = userColor(playerName);
   av.textContent = playerName[0].toUpperCase();
   document.getElementById('profile-name').textContent = playerName.toUpperCase();
+
+  // Precompila l'email dell'utente per le notifiche
+  const emailEl = document.getElementById('profile-email');
+  if(emailEl) emailEl.value = u?.email || '';
+  const emailStatus = document.getElementById('profile-email-status');
+  if(emailStatus) emailStatus.textContent = '';
 
   // ── Calcola tutte le statistiche ──
   const allMatches = [];
@@ -5981,6 +6022,6 @@ function confetti(){
 
 // ════ fine app ════
 </script>
-<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.9.1</div>
+<div style="text-align:center;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;color:var(--muted);position:relative;z-index:1;">PADEL PRO · v1.10.0</div>
 </body>
 </html>
